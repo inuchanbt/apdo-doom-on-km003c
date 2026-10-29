@@ -11,9 +11,11 @@ use embedded_graphics::{
     primitives::Rectangle,
     text::Text,
 };
-use km003c_interface::{GameCommand, GameReply};
+use km003c_interface::{GameCommand, GameInputReply, GameInputRequest, GameReply, RemoteGameInput};
 static COMMANDS: Channel<CriticalSectionRawMutex, GameCommand, 1> = Channel::new();
 static REPLY: Signal<CriticalSectionRawMutex, GameReply> = Signal::new();
+static INPUTS: Channel<CriticalSectionRawMutex, GameInputRequest, 1> = Channel::new();
+static INPUT_REPLY: Signal<CriticalSectionRawMutex, GameInputReply> = Signal::new();
 static mut DISPLAY: *mut crate::display::Display = null_mut();
 static mut KEYS: u32 = 0;
 unsafe extern "C" {
@@ -24,6 +26,10 @@ unsafe extern "C" {
 pub async fn request(command: GameCommand) -> GameReply {
     COMMANDS.send(command).await;
     REPLY.wait().await
+}
+pub async fn input(state: GameInputRequest) -> GameInputReply {
+    INPUTS.send(state).await;
+    INPUT_REPLY.wait().await
 }
 
 #[unsafe(no_mangle)]
@@ -144,6 +150,7 @@ pub async fn task(aw: crate::aw9523::Aw9523) {
     let mut frames = 0u32;
     let mut elapsed_ms = 0u32;
     let mut exit_since = None;
+    let mut remote = RemoteGameInput::default();
     loop {
         let mut mask = 0u32;
         for (i, b) in buttons.iter().enumerate() {
@@ -161,20 +168,6 @@ pub async fn task(aw: crate::aw9523::Aw9523) {
             }
         } else {
             exit_since = None;
-        }
-        let mut keys = mask;
-        if running && unsafe { km_doom_menu() } != 0 {
-            keys = ((mask >> 2) & 1) << 1
-                | ((mask >> 3) & 1) << 7
-                | ((mask >> 1) & 1) << 6
-                | (mask & 1) << 5;
-        } else if mask & 3 == 3 {
-            keys = (keys & !3) | 32;
-        } else if mask & 12 == 12 {
-            keys = (keys & !12) | 16;
-        }
-        unsafe {
-            KEYS = keys;
         }
         if let Ok(command) = COMMANDS.try_receive() {
             auto_boot = false;
@@ -227,7 +220,10 @@ pub async fn task(aw: crate::aw9523::Aw9523) {
                     running = true;
                 }
                 GameCommand::Start if running => {}
-                GameCommand::Pause => running = false,
+                GameCommand::Pause => {
+                    running = false;
+                    remote.clear();
+                }
                 _ => reply.code = 1,
             }
             REPLY.signal(reply);
@@ -240,6 +236,46 @@ pub async fn task(aw: crate::aw9523::Aw9523) {
             }
             initialized = true;
             running = true;
+        }
+        let now_ms = embassy_time::Instant::now().as_millis();
+        let response = INPUTS.try_receive().ok().map(|request| {
+            let GameInputRequest::Set(state) = request else {
+                return true;
+            };
+            if running || state.buttons == 0 {
+                remote.update(state, now_ms)
+            } else {
+                remote.clear();
+                false
+            }
+        });
+        let menu_active = running && unsafe { km_doom_menu() } != 0;
+        let mut keys = mask;
+        if menu_active {
+            keys = ((mask >> 2) & 1) << 1
+                | ((mask >> 3) & 1) << 7
+                | ((mask >> 1) & 1) << 6
+                | (mask & 1) << 5;
+        } else if mask & 3 == 3 {
+            keys = (keys & !3) | 32;
+        } else if mask & 12 == 12 {
+            keys = (keys & !12) | 16;
+        }
+        let remote_buttons = if running { remote.buttons(now_ms) } else { 0 };
+        keys |= u32::from(remote_buttons);
+        unsafe {
+            KEYS = keys;
+        }
+        if let Some(accepted) = response {
+            INPUT_REPLY.signal(GameInputReply {
+                accepted,
+                running,
+                remote_buttons,
+                applied_buttons: keys as u8,
+                menu_active,
+                frames,
+                frame_ms: elapsed_ms,
+            });
         }
         if running {
             let start = embassy_time::Instant::now();

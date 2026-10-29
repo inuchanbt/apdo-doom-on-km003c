@@ -22,6 +22,7 @@
 | Display | 240×180, centered on the 240×240 LCD |
 | Performance | About 171–173 ms per rendered frame, roughly 6 fps |
 | Controls | Movement, turning, shooting, use, and menu inputs |
+| PC controls | Browser keyboard/mouse panel over USB; device gameplay confirmed |
 | Startup | Automatic startup after about 3 seconds; unplug/replug and gameplay confirmed on the device |
 | Recovery | Original application and all 4 MiB of external NOR restored and verified; stock firmware boot confirmed |
 
@@ -44,6 +45,16 @@ This is an experimental port verified on **one unit**, not a compatibility claim
 | Return to the native update loader | Hold Exit for about 2 seconds |
 
 Holding Exit while connecting the HID cable also enters the native update screen, independently of the application.
+
+### Play from the PC
+
+With the PC-control firmware (v5) and updated host installed:
+
+```powershell
+.\scripts\play.ps1
+```
+
+Click **Enable keyboard** in the local panel. Use **WASD / arrows**, **Space / Ctrl** to fire, **E** to use, **Esc** for the menu, and **Enter** to confirm. Switching away releases keys; enable them again when returning. The meter still renders the game. See [PC controls](docs/PC-CONTROLS.md) for setup, input expiry, and scripted control.
 
 ## Source and build
 
@@ -86,6 +97,7 @@ Read [the recovery guide](docs/RECOVERY.md) before using it. A fresh clone does 
 | `overlays/` | Added Rust files for the board firmware and host tools |
 | `patches/` | Changes to the pinned upstream repositories |
 | `scripts/` | Source reconstruction, builds, tests, and recovery helpers |
+| `web/` | Local keyboard/mouse control panel |
 | `docs/` | Build, recovery, and validation documentation |
 | `notices/` | Freedoom license and credits |
 | `vendor/`, `tools/` | Local source checkouts and toolchains; ignored |

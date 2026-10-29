@@ -1,8 +1,8 @@
 diff --git a/crates/km003c-host-cli/src/main.rs b/crates/km003c-host-cli/src/main.rs
-index e855d65..f1588da 100644
+index e855d65..0a2f0e2 100644
 --- a/crates/km003c-host-cli/src/main.rs
 +++ b/crates/km003c-host-cli/src/main.rs
-@@ -24,6 +24,39 @@ struct Args {
+@@ -24,6 +24,47 @@ struct Args {
  }
  #[derive(Subcommand)]
  enum Command {
@@ -11,6 +11,14 @@ index e855d65..f1588da 100644
 +    RecoveryLoader,
 +    StockStart,
 +    GameStatus,
++    /// Accept decimal key masks on stdin; emit JSON acknowledgements.
++    GameControl,
++    GameInput {
++        buttons: u8,
++        #[arg(long, default_value_t = 750)]
++        lease_ms: u16,
++    },
++    GameInputStatus,
 +    GameBackup {
 +        output: PathBuf,
 +        /// Verified first 3 MiB read using the stock firmware.
@@ -42,7 +50,7 @@ index e855d65..f1588da 100644
      Status,
      /// Current PD owner and last command/session results.
      PdStatus,
-@@ -88,6 +121,40 @@ async fn main() -> Result<()> {
+@@ -88,6 +129,53 @@ async fn main() -> Result<()> {
          .serial
          .map_or(DeviceSelector::First, DeviceSelector::SerialNumber);
      match args.command {
@@ -53,6 +61,19 @@ index e855d65..f1588da 100644
 +        }
 +        Command::StockStart => km003c_host_lib::stock::start(selector).await?,
 +        Command::GameStatus => km003c_host_lib::game::status(selector).await?,
++        Command::GameControl => km003c_host_lib::controller::control_stdin(selector).await?,
++        Command::GameInput { buttons, lease_ms } => {
++            println!(
++                "{:#?}",
++                km003c_host_lib::controller::input(selector, buttons, lease_ms).await?
++            );
++        }
++        Command::GameInputStatus => {
++            println!(
++                "{:#?}",
++                km003c_host_lib::controller::status(selector).await?
++            );
++        }
 +        Command::GameBackup {
 +            output,
 +            stock_prefix,
@@ -84,12 +105,13 @@ index e855d65..f1588da 100644
              let data = package::package(&std::fs::read(&binary)?)?;
              use std::io::Write;
 diff --git a/crates/km003c-host-lib/src/lib.rs b/crates/km003c-host-lib/src/lib.rs
-index d5e2736..b8a3b58 100644
+index d5e2736..e696f7f 100644
 --- a/crates/km003c-host-lib/src/lib.rs
 +++ b/crates/km003c-host-lib/src/lib.rs
-@@ -1,8 +1,10 @@
+@@ -1,8 +1,11 @@
  //! Reusable host runtime: RPC, recording, experiments and native-loader updates.
  pub mod capture;
++pub mod controller;
 +pub mod game;
  pub mod maintenance;
  pub mod maneuver;
@@ -182,10 +204,10 @@ index 84e31f2..81295da 100644
  
  pub async fn diagnostics(selector: DeviceSelector, output: &Path) -> Result<()> {
 diff --git a/crates/km003c-interface/src/lib.rs b/crates/km003c-interface/src/lib.rs
-index d2e58f5..273d398 100644
+index d2e58f5..296e4d8 100644
 --- a/crates/km003c-interface/src/lib.rs
 +++ b/crates/km003c-interface/src/lib.rs
-@@ -23,6 +23,35 @@ pub struct Measurement {
+@@ -23,6 +23,159 @@ pub struct Measurement {
      pub lines_uv: Option<[u32; 4]>,
  }
  pub type LoaderResult = Result<(), ()>;
@@ -218,14 +240,139 @@ index d2e58f5..273d398 100644
 +    pub elapsed_ms: u32,
 +    pub jedec: u32,
 +}
++/// Engine keys, independent of the physical Exit-to-loader gesture.
++#[derive(Debug, Clone, Copy, Serialize, Deserialize, Schema)]
++pub struct GameInputState {
++    pub buttons: u8,
++    pub lease_ms: u16,
++}
++#[derive(Debug, Clone, Copy, Serialize, Deserialize, Schema)]
++pub enum GameInputRequest {
++    Set(GameInputState),
++    Status,
++}
++#[derive(Debug, Clone, Copy, Serialize, Deserialize, Schema)]
++pub struct GameInputReply {
++    pub accepted: bool,
++    pub running: bool,
++    pub remote_buttons: u8,
++    pub applied_buttons: u8,
++    pub menu_active: bool,
++    pub frames: u32,
++    pub frame_ms: u32,
++}
++/// A remote host must keep renewing held keys. Expired input is always released.
++#[derive(Default)]
++pub struct RemoteGameInput {
++    buttons: u8,
++    expires_ms: u64,
++}
++impl RemoteGameInput {
++    pub fn clear(&mut self) {
++        self.buttons = 0;
++        self.expires_ms = 0;
++    }
++    pub fn update(&mut self, input: GameInputState, now_ms: u64) -> bool {
++        self.clear();
++        if input.buttons == 0 {
++            return true;
++        }
++        if !(100..=1000).contains(&input.lease_ms) {
++            return false;
++        }
++        self.buttons = input.buttons;
++        self.expires_ms = now_ms.saturating_add(u64::from(input.lease_ms));
++        true
++    }
++    pub fn buttons(&self, now_ms: u64) -> u8 {
++        if now_ms < self.expires_ms {
++            self.buttons
++        } else {
++            0
++        }
++    }
++}
++
++#[cfg(test)]
++mod game_input_tests {
++    use super::*;
++    #[test]
++    fn input_expires_at_deadline_and_heartbeat_renews_it() {
++        let mut remote = RemoteGameInput::default();
++        assert!(remote.update(
++            GameInputState {
++                buttons: 3,
++                lease_ms: 750
++            },
++            100
++        ));
++        assert_eq!(remote.buttons(849), 3);
++        assert_eq!(remote.buttons(850), 0);
++        assert!(remote.update(
++            GameInputState {
++                buttons: 2,
++                lease_ms: 750
++            },
++            800
++        ));
++        assert_eq!(remote.buttons(850), 2);
++        assert_eq!(remote.buttons(1550), 0);
++    }
++    #[test]
++    fn invalid_lease_clears_previous_keys() {
++        let mut remote = RemoteGameInput::default();
++        remote.update(
++            GameInputState {
++                buttons: 255,
++                lease_ms: 750,
++            },
++            0,
++        );
++        assert!(!remote.update(
++            GameInputState {
++                buttons: 255,
++                lease_ms: 1001
++            },
++            1
++        ));
++        assert_eq!(remote.buttons(2), 0);
++        assert!(!remote.update(
++            GameInputState {
++                buttons: 1,
++                lease_ms: 99
++            },
++            2
++        ));
++    }
++    #[test]
++    fn explicit_release_does_not_wait_for_expiry() {
++        let mut remote = RemoteGameInput::default();
++        remote.update(
++            GameInputState {
++                buttons: 1,
++                lease_ms: 1000,
++            },
++            0,
++        );
++        assert!(remote.update(
++            GameInputState {
++                buttons: 0,
++                lease_ms: 0
++            },
++            1
++        ));
++        assert_eq!(remote.buttons(1), 0);
++    }
++}
  postcard_rpc::endpoints! {
      list = ENDPOINTS;
      | EndpointTy | RequestTy | ResponseTy | Path |
-@@ -32,6 +61,7 @@ postcard_rpc::endpoints! {
+@@ -32,6 +185,8 @@ postcard_rpc::endpoints! {
      | SetStream | bool | () | "km003c/stream" |
      | EnterLoader | () | LoaderResult | "km003c/loader" |
      | ControlPd | PdControl | ControlResult | "km003c/pd/control" |
 +    | GameIo | GameCommand | GameReply | "km003c/doom/io" |
++    | GameInput | GameInputRequest | GameInputReply | "km003c/doom/input" |
  }
  postcard_rpc::topics! {
      list = TOPICS_IN;
@@ -359,7 +506,7 @@ index 76e66b9..c5f84f4 100644
      /// erase command. Call before panel init while this owner has the entire
      /// shared QSPI bus. Leave flash in standard SPI, which also works after a
 diff --git a/firmware/src/main.rs b/firmware/src/main.rs
-index 7231bba..0e41855 100644
+index 7231bba..9d2cb6f 100644
 --- a/firmware/src/main.rs
 +++ b/firmware/src/main.rs
 @@ -1,5 +1,6 @@
@@ -387,7 +534,7 @@ index 7231bba..0e41855 100644
 +    let fields: [&[u8]; 3] = [
 +        b"KM003C",
 +        if cfg!(feature = "doom") {
-+            b"2.0.7-doom"
++            b"2.0.7-doom5"
 +        } else {
 +            b"rust-rpc"
 +        },
@@ -450,10 +597,10 @@ index 7231bba..0e41855 100644
  }
  
 diff --git a/firmware/src/rpc.rs b/firmware/src/rpc.rs
-index c55488f..319e768 100644
+index c55488f..a5d8e6a 100644
 --- a/firmware/src/rpc.rs
 +++ b/firmware/src/rpc.rs
-@@ -44,6 +44,24 @@ fn stream(_: &mut Context, _: VarHeader, enabled: bool) {
+@@ -44,6 +44,43 @@ fn stream(_: &mut Context, _: VarHeader, enabled: bool) {
  async fn loader(_: &mut Context, _: VarHeader, _: ()) -> LoaderResult {
      crate::enter_loader(0x600d0002).await.map_err(|_| ())
  }
@@ -475,14 +622,34 @@ index c55488f..319e768 100644
 +        }
 +    }
 +}
++async fn game_input(_: &mut Context, _: VarHeader, input: GameInputRequest) -> GameInputReply {
++    #[cfg(feature = "doom")]
++    {
++        crate::doom::input(input).await
++    }
++    #[cfg(not(feature = "doom"))]
++    {
++        let _ = input;
++        GameInputReply {
++            accepted: false,
++            running: false,
++            remote_buttons: 0,
++            applied_buttons: 0,
++            menu_active: false,
++            frames: 0,
++            frame_ms: 0,
++        }
++    }
++}
  define_dispatch! {
      app: App;
      spawn_fn: spawn_fn;
-@@ -59,6 +77,7 @@ define_dispatch! {
+@@ -59,6 +96,8 @@ define_dispatch! {
          | SetStream | blocking | stream |
          | EnterLoader | async | loader |
          | ControlPd | blocking | pd_control |
 +        | GameIo | async | game |
++        | GameInput | async | game_input |
  
      };
      topics_in: {

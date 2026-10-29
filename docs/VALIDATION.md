@@ -27,3 +27,7 @@ Local evidence includes `artifacts/final-verification.json`, `flash-final/`, `ga
 The README image is a host render. Host rendering and compilation checks supplement the device checks; they are not evidence of hardware operation by themselves.
 
 The public repository subsequently parameterizes local recovery paths and the build-time serial and adds an explicit `game-backup --stock-prefix` argument. These host/build changes do not alter the installed v4 game image. Publication checks and the exact pushed revision are available in Git history.
+
+## PC controls (v5)
+
+The subsequent v5 update adds a separate leased-input endpoint and browser controller. Its whole application was read back and the loader was unchanged. A 300 ms forward command was accepted by the device and a later read-only input status showed all remote/applied keys released. The user confirmed movement, turning, and firing from the browser keyboard. The game engine and NOR game resources are unchanged. See [PC-CONTROLS.md](PC-CONTROLS.md) for input handling and focused test coverage.

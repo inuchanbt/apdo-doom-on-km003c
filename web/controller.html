@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>APDO · KM003C Controller</title>
+  <link rel="stylesheet" href="/controller.css">
+  <script src="/controller.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><span class="eyebrow">AUGMENTED POWER DOOM OBJECT</span><h1>Small screen.<br>Full keyboard.</h1><p>PC controls for DOOM on your KM003C.</p></header>
+    <section class="status" aria-live="polite"><span id="dot"></span><strong id="connection">Connecting to meter…</strong><span id="performance">—</span></section>
+    <section class="controls">
+      <div class="toolbar"><button id="enable" class="primary">Enable keyboard</button><button id="release">Release all</button><span id="focus">Click Enable keyboard to play</span></div>
+      <div class="layout">
+        <div class="movement">
+          <button data-mask="2" class="forward"><b>↑</b><small>W · Forward</small></button>
+          <button data-mask="4" class="left"><b>←</b><small>A · Turn left</small></button>
+          <button data-mask="128" class="back"><b>↓</b><small>S · Backward</small></button>
+          <button data-mask="8" class="right"><b>→</b><small>D · Turn right</small></button>
+        </div>
+        <div class="actions">
+          <button data-mask="1" class="fire"><b>Fire</b><small>Space / Ctrl</small></button>
+          <button data-mask="16"><b>Use</b><small>E · Door / switch</small></button>
+          <button data-mask="32"><b>Menu</b><small>Esc</small></button>
+          <button data-mask="64"><b>Confirm</b><small>Enter</small></button>
+        </div>
+      </div>
+      <p class="hint">Arrow keys also work. In menus, use ↑ / ↓ and Enter.<br>Keep this tab focused; switching away releases every key.</p>
+    </section>
+    <footer><p>Look at the meter for the game. Controls can also be held with a mouse or touch.</p><button id="stop">Stop controller</button></footer>
+    <p id="error" role="alert"></p>
+  </main>
+</body>
+</html>
