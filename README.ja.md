@@ -1,6 +1,6 @@
 # APDO — DOOM on KM003C
 
-[English（メイン）](README.md) · [日本語](README.ja.md)
+[English](README.md) · [日本語](README.ja.md)
 
 > 本プロジェクトは、EPR（Extended Pixel Range）規格に準拠し、高負荷な戦闘シーンでは AVS（Adjustable Violence System）によって暴力描写とフレームレートを100mHz単位で動的に最適化。最終的に APDO（Augmented Power DOOM Object）としてKM003Cの画面へ出力される――
 
