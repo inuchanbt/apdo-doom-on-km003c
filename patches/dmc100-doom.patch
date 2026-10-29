@@ -1,0 +1,72 @@
+diff --git a/tools/conv/upstream.py b/tools/conv/upstream.py
+index 28d955d..2a472b8 100644
+--- a/tools/conv/upstream.py
++++ b/tools/conv/upstream.py
+@@ -10,6 +10,7 @@ import concurrent.futures
+ import json
+ import os
+ import re
++import shutil
+ import subprocess
+ 
+ from . import format as F
+@@ -100,7 +101,7 @@ def build():
+     mkdirs(objdir)
+     jobs = [(os.path.join(UPSTREAM, n + ".c"), os.path.join(objdir, n + ".o"), ()) for n in ENGINE]
+     jobs.append((os.path.join(DUMPER_SRC, "dump_spec.c"), os.path.join(objdir, "dump_spec.o"), ()))
+-    jobs.append((os.path.join(DUMPER_SRC, "dump_info.c"), os.path.join(objdir, "dump_info.o"), ("-g",)))
++    jobs.append((os.path.join(DUMPER_SRC, "dump_info.c"), os.path.join(objdir, "dump_info.o"), ("-gdwarf",)))
+     objs = _compile_all(jobs, objdir)
+     # Action functions referenced by the state table, from the undefined symbols of info.o.
+     syms = sorted(set(re.findall(r"\b(A_\w+)", _run([NM, "-u", os.path.join(objdir, "info.o")]))))
+@@ -121,7 +122,7 @@ def build():
+     write_if_changed(str_c, "\n".join(strs))
+     objs += _compile_all([(act_c, os.path.join(objdir, "actions.o"), ()),
+                           (str_c, os.path.join(objdir, "strings.o"), ())], objdir)
+-    exe = os.path.join(OUT, "dump_info")
++    exe = os.path.join(OUT, "dump_info.exe" if os.name == "nt" else "dump_info")
+     if _stale(exe, objs):
+         tmp = tmp_name(exe)
+         _run([CC, "-o", tmp] + objs + ["-lm"])
+@@ -131,6 +132,41 @@ def build():
+ 
+ def _dwarf_enums(obj):
+     """{typedef name: [(enumerator, value)]} from llvm-dwarfdump text output."""
++    if os.name == "nt" and not shutil.which(DWARFDUMP):
++        # LLVM-MinGW omits dwarfdump. Ask the same compiler for its evaluated
++        # enum declarations instead; this still uses the pinned upstream types.
++        ast = json.loads(_run([CC] + CFLAGS + ["-Xclang", "-ast-dump=json",
++                                             "-fsyntax-only", os.path.join(DUMPER_SRC, "dump_info.c")]))
++        enum_by_id = {}
++        typedefs = []
++        def visit(node):
++            if node.get("kind") == "EnumDecl" and "inner" in node:
++                value, vals = -1, []
++                for child in node["inner"]:
++                    if child.get("kind") != "EnumConstantDecl":
++                        continue
++                    value += 1
++                    for expr in child.get("inner", []):
++                        if expr.get("kind") == "ConstantExpr" and "value" in expr:
++                            value = int(expr["value"], 0)
++                    vals.append((child["name"], value))
++                enum_by_id[node["id"]] = vals
++            if node.get("kind") == "TypedefDecl":
++                typedefs.append(node)
++            for child in node.get("inner", []):
++                visit(child)
++        visit(ast)
++        out = {}
++        for node in typedefs:
++            pending = list(node.get("inner", []))
++            while pending:
++                child = pending.pop()
++                ref = child.get("ownedTagDecl", child.get("decl", {})).get("id")
++                if ref in enum_by_id:
++                    out[node["name"]] = enum_by_id[ref]
++                    break
++                pending.extend(child.get("inner", []))
++        return out
+     text = _run([DWARFDUMP, "--debug-info", obj])
+     entries = []
+     cur = None

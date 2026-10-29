@@ -1,0 +1,7 @@
+{
+  "device_serial": "YOUR_DEVICE_SERIAL",
+  "stock_backup": "backups/my-device-stock",
+  "external_backup": "backups/my-device-external",
+  "doom_image": "artifacts/km003c-doom.mencrypt",
+  "python": "python"
+}

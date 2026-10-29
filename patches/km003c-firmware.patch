@@ -1,0 +1,488 @@
+diff --git a/crates/km003c-host-cli/src/main.rs b/crates/km003c-host-cli/src/main.rs
+index e855d65..f1588da 100644
+--- a/crates/km003c-host-cli/src/main.rs
++++ b/crates/km003c-host-cli/src/main.rs
+@@ -24,6 +24,39 @@ struct Args {
+ }
+ #[derive(Subcommand)]
+ enum Command {
++    /// Read stock firmware identity without changing device mode.
++    StockInfo,
++    RecoveryLoader,
++    StockStart,
++    GameStatus,
++    GameBackup {
++        output: PathBuf,
++        /// Verified first 3 MiB read using the stock firmware.
++        #[arg(long)]
++        stock_prefix: PathBuf,
++    },
++    GameInstall {
++        data: PathBuf,
++        backup: PathBuf,
++        evidence: PathBuf,
++    },
++    GameStart,
++    GameRestore {
++        backup: PathBuf,
++        evidence: PathBuf,
++    },
++    DfuProbe {
++        output: PathBuf,
++    },
++    StockRead {
++        address: String,
++        size: usize,
++        output: PathBuf,
++    },
++    /// Read recovery regions twice and produce a verified stock restore package.
++    StockBackup {
++        output: PathBuf,
++    },
+     Status,
+     /// Current PD owner and last command/session results.
+     PdStatus,
+@@ -88,6 +121,40 @@ async fn main() -> Result<()> {
+         .serial
+         .map_or(DeviceSelector::First, DeviceSelector::SerialNumber);
+     match args.command {
++        Command::StockInfo => km003c_host_lib::stock::inspect(selector).await?,
++        Command::RecoveryLoader => {
++            maintenance::enter(selector).await?;
++            println!("Native DFU selected");
++        }
++        Command::StockStart => km003c_host_lib::stock::start(selector).await?,
++        Command::GameStatus => km003c_host_lib::game::status(selector).await?,
++        Command::GameBackup {
++            output,
++            stock_prefix,
++        } => km003c_host_lib::game::backup(selector, &output, &stock_prefix).await?,
++        Command::GameInstall {
++            data,
++            backup,
++            evidence,
++        } => km003c_host_lib::game::install(selector, &data, &backup, &evidence).await?,
++        Command::GameStart => km003c_host_lib::game::start(selector).await?,
++        Command::GameRestore { backup, evidence } => {
++            km003c_host_lib::game::restore(selector, &backup, &evidence).await?
++        }
++        Command::DfuProbe { output } => {
++            km003c_host_lib::stock::dfu_probe(selector, &output).await?
++        }
++        Command::StockRead {
++            address,
++            size,
++            output,
++        } => {
++            let address = u32::from_str_radix(address.trim_start_matches("0x"), 16)?;
++            km003c_host_lib::stock::read_region(selector, address, size, &output).await?;
++        }
++        Command::StockBackup { output } => {
++            km003c_host_lib::stock::backup(selector, &output).await?
++        }
+         Command::Package { binary, output } => {
+             let data = package::package(&std::fs::read(&binary)?)?;
+             use std::io::Write;
+diff --git a/crates/km003c-host-lib/src/lib.rs b/crates/km003c-host-lib/src/lib.rs
+index d5e2736..b8a3b58 100644
+--- a/crates/km003c-host-lib/src/lib.rs
++++ b/crates/km003c-host-lib/src/lib.rs
+@@ -1,8 +1,10 @@
+ //! Reusable host runtime: RPC, recording, experiments and native-loader updates.
+ pub mod capture;
++pub mod game;
+ pub mod maintenance;
+ pub mod maneuver;
+ pub mod package;
+ pub mod rpc;
++pub mod stock;
+ pub use km003c_interface as interface;
+ pub use km003c_lib::DeviceSelector;
+diff --git a/crates/km003c-host-lib/src/maintenance.rs b/crates/km003c-host-lib/src/maintenance.rs
+index 84e31f2..81295da 100644
+--- a/crates/km003c-host-lib/src/maintenance.rs
++++ b/crates/km003c-host-lib/src/maintenance.rs
+@@ -8,7 +8,9 @@ use km003c_lib::{
+ use sha2::{Digest, Sha256};
+ use std::{io::Write, path::Path, time::Duration};
+ 
+-const KNOWN_LOADER: &[u8] = include_bytes!("../../../fw/bootloader_hw2.1_00000004-00003fff.bin");
++// Private baseline: read twice in APP and twice in native DFU from the tested unit.
++// This is deliberately a byte-exact allowlist for the user's HW2.3 loader.
++const KNOWN_LOADER: &[u8] = include_bytes!("../../../fw/bootloader_local_hw2.3.bin");
+ pub fn digest(data: &[u8]) -> String {
+     Sha256::digest(data)
+         .iter()
+@@ -69,7 +71,7 @@ pub async fn open(selector: DeviceSelector) -> Result<(KM003C, DeviceSelector)>
+     let mut d = KM003C::open_maintenance(stable.clone()).await?;
+     let info = d.get_bootloader_info().await?;
+     ensure!(
+-        info.model == "KM003C" && info.hw_version == "2.1",
++        info.model == "KM003C" && info.hw_version == "2.3",
+         "unsupported device: {info:?}"
+     );
+     Ok((d, stable))
+@@ -80,7 +82,11 @@ pub async fn enter(selector: DeviceSelector) -> Result<DeviceSelector> {
+     if found.mode != FirmwareUsbMode::Dfu {
+         // Only our RPC app is rebooted automatically. Stock protocol operations
+         // remain in km003c-lib and are not guessed for unknown USB interfaces.
+-        Client::connect(stable.clone()).await?.loader().await?;
++        if found.product_string.as_deref() == Some("POWER-Z KM003C") {
++            crate::stock::enter_loader(stable.clone()).await?;
++        } else {
++            Client::connect(stable.clone()).await?.loader().await?;
++        }
+     }
+     Ok(stable)
+ }
+@@ -116,7 +122,7 @@ pub async fn verify(selector: DeviceSelector, image: &FirmwareImage) -> Result<(
+     let (mut d, _) = open(selector).await?;
+     ensure!(
+         read(&mut d, 4, KNOWN_LOADER.len()).await? == KNOWN_LOADER,
+-        "loader differs from verified HW2.1 reference"
++        "loader differs from the local HW2.3 recovery baseline"
+     );
+     ensure!(
+         read(&mut d, 0x4000, image.data().len()).await? == image.installed_data()?,
+@@ -138,11 +144,11 @@ pub async fn flash(
+     let before = read(&mut d, 4, KNOWN_LOADER.len()).await?;
+     ensure!(
+         before == KNOWN_LOADER,
+-        "loader differs from verified HW2.1 reference"
++        "loader differs from the local HW2.3 recovery baseline"
+     );
+     save_new(&evidence.join("loader-before.bin"), &before)?;
+     // Persist provenance before the first erase.
+-    save_new(&evidence.join("before.json"),serde_json::to_string_pretty(&serde_json::json!({"image_sha256":digest(image.data()),"loader_sha256":digest(&before),"selector":format!("{stable:?}"),"model":"KM003C","hw_version":"2.1"}))?.as_bytes())?;
++    save_new(&evidence.join("before.json"),serde_json::to_string_pretty(&serde_json::json!({"image_sha256":digest(image.data()),"loader_sha256":digest(&before),"selector":format!("{stable:?}"),"model":"KM003C","hw_version":"2.3"}))?.as_bytes())?;
+     d.update_firmware(image, |p| {
+         eprintln!("{:?}: {}/{}", p.stage, p.bytes_written, p.total_bytes)
+     })
+@@ -161,11 +167,19 @@ pub async fn flash(
+ }
+ pub async fn start(selector: DeviceSelector) -> Result<()> {
+     let (mut d, stable) = open(selector).await?;
+-    d.jump_to_application().await?;
++    // WinUSB may complete the reset write with DeviceDisconnected. A verified
++    // application on the same physical port, rather than that write, is success.
++    let _ = d.jump_to_application().await;
+     drop(d);
+     // Enumeration is asynchronous; do not report a usable application early.
+-    Client::connect(stable).await?.status().await?;
+-    Ok(())
++    for _ in 0..10 {
++        if let Ok(client) = Client::connect(stable.clone()).await {
++            client.status().await?;
++            return Ok(());
++        }
++        tokio::time::sleep(Duration::from_millis(200)).await;
++    }
++    bail!("RPC application did not re-enumerate on the selected port")
+ }
+ 
+ pub async fn diagnostics(selector: DeviceSelector, output: &Path) -> Result<()> {
+diff --git a/crates/km003c-interface/src/lib.rs b/crates/km003c-interface/src/lib.rs
+index d2e58f5..273d398 100644
+--- a/crates/km003c-interface/src/lib.rs
++++ b/crates/km003c-interface/src/lib.rs
+@@ -23,6 +23,35 @@ pub struct Measurement {
+     pub lines_uv: Option<[u32; 4]>,
+ }
+ pub type LoaderResult = Result<(), ()>;
++// A bounded inline page is intentional: this no_std wire contract uses no heap.
++#[allow(clippy::large_enum_variant)]
++#[derive(Debug, Clone, Copy, Serialize, Deserialize, Schema)]
++pub enum GameCommand {
++    Read {
++        address: u32,
++        len: u16,
++    },
++    Erase {
++        address: u32,
++        unlock: u32,
++    },
++    Write {
++        address: u32,
++        len: u16,
++        data: [[u8; 32]; 8],
++    },
++    Start,
++    Pause,
++}
++#[derive(Debug, Clone, Copy, Serialize, Deserialize, Schema)]
++pub struct GameReply {
++    pub code: u8,
++    pub len: u16,
++    pub data: [[u8; 32]; 8],
++    pub frames: u32,
++    pub elapsed_ms: u32,
++    pub jedec: u32,
++}
+ postcard_rpc::endpoints! {
+     list = ENDPOINTS;
+     | EndpointTy | RequestTy | ResponseTy | Path |
+@@ -32,6 +61,7 @@ postcard_rpc::endpoints! {
+     | SetStream | bool | () | "km003c/stream" |
+     | EnterLoader | () | LoaderResult | "km003c/loader" |
+     | ControlPd | PdControl | ControlResult | "km003c/pd/control" |
++    | GameIo | GameCommand | GameReply | "km003c/doom/io" |
+ }
+ postcard_rpc::topics! {
+     list = TOPICS_IN;
+diff --git a/firmware/Cargo.toml b/firmware/Cargo.toml
+index bdccfd2..50df1e8 100644
+--- a/firmware/Cargo.toml
++++ b/firmware/Cargo.toml
+@@ -3,6 +3,9 @@ name = "km003c-firmware"
+ version = "0.1.0"
+ edition = "2024"
+ 
++[features]
++doom = []
++
+ # PD's software GoodCRC needs cross-crate optimization of the per-edge decoder.
+ [profile.release]
+ lto = "thin"
+diff --git a/firmware/build.rs b/firmware/build.rs
+index d782564..b73fe9f 100644
+--- a/firmware/build.rs
++++ b/firmware/build.rs
+@@ -7,4 +7,14 @@ fn main() {
+         println!("cargo:rerun-if-changed={name}");
+     }
+     println!("cargo:rustc-link-search={}", out.display());
++    if env::var_os("CARGO_FEATURE_DOOM").is_some() {
++        let engine = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap())
++            .join("../../../artifacts/engine");
++        println!("cargo:rustc-link-search=native={}", engine.display());
++        println!("cargo:rustc-link-lib=static=kmdoom");
++        println!(
++            "cargo:rerun-if-changed={}",
++            engine.join("libkmdoom.a").display()
++        );
++    }
+ }
+diff --git a/firmware/src/display.rs b/firmware/src/display.rs
+index 76e66b9..c5f84f4 100644
+--- a/firmware/src/display.rs
++++ b/firmware/src/display.rs
+@@ -17,6 +17,91 @@ pub struct Display {
+     rotation: km003c_drivers::rotation::Rotation,
+ }
+ impl Display {
++    /// Explicit single-SPI NOR operations. The UI/game task exclusively owns
++    /// this controller; no interrupt or USB handler touches its registers.
++    pub fn nor_read(&mut self, address: u32, bytes: &mut [u8]) {
++        assert!(
++            address
++                .checked_add(bytes.len() as u32)
++                .is_some_and(|end| end <= 0x400000)
++        );
++        self.flash_read(
++            &[
++                3,
++                (address >> 16) as u8,
++                (address >> 8) as u8,
++                address as u8,
++            ],
++            bytes,
++        );
++    }
++    pub fn nor_jedec(&mut self) -> u32 {
++        let mut id = [0; 3];
++        self.flash_read(&[0x9f], &mut id);
++        u32::from_be_bytes([0, id[0], id[1], id[2]])
++    }
++    fn nor_status(&mut self) -> u8 {
++        let mut value = [0];
++        self.flash_read(&[5], &mut value);
++        value[0]
++    }
++    fn nor_ready(&mut self, ms: u64) -> Result<(), ()> {
++        let start = embassy_time::Instant::now();
++        while self.nor_status() & 1 != 0 {
++            if start.elapsed().as_millis() > ms {
++                return Err(());
++            }
++        }
++        Ok(())
++    }
++    fn nor_enable(&mut self) -> Result<(), ()> {
++        self.nor_ready(3000)?;
++        self.flash_read(&[6], &mut []);
++        if self.nor_status() & 2 == 0 {
++            return Err(());
++        }
++        Ok(())
++    }
++    pub fn nor_erase_game_sector(&mut self, address: u32) -> Result<(), ()> {
++        // Only the first 3 MiB may hold game data. The settings/calibration
++        // sectors near 4 MiB cannot be addressed by these write methods.
++        if address >= 0x300000 || address & 4095 != 0 {
++            return Err(());
++        }
++        self.nor_enable()?;
++        self.flash_read(
++            &[
++                0x20,
++                (address >> 16) as u8,
++                (address >> 8) as u8,
++                address as u8,
++            ],
++            &mut [],
++        );
++        self.nor_ready(3000)
++    }
++    pub fn nor_program_game_page(&mut self, address: u32, bytes: &[u8]) -> Result<(), ()> {
++        if bytes.is_empty()
++            || bytes.len() > 256
++            || address & 255 != 0
++            || address
++                .checked_add(bytes.len() as u32)
++                .is_none_or(|end| end > 0x300000)
++        {
++            return Err(());
++        }
++        self.nor_enable()?;
++        let mut packet = [0; 260];
++        packet[..4].copy_from_slice(&[
++            2,
++            (address >> 16) as u8,
++            (address >> 8) as u8,
++            address as u8,
++        ]);
++        packet[4..4 + bytes.len()].copy_from_slice(bytes);
++        self.flash_read(&packet[..4 + bytes.len()], &mut []);
++        self.nor_ready(100)
++    }
+     /// Read the native settings-A copy without any write-enable, program or
+     /// erase command. Call before panel init while this owner has the entire
+     /// shared QSPI bus. Leave flash in standard SPI, which also works after a
+diff --git a/firmware/src/main.rs b/firmware/src/main.rs
+index 7231bba..0e41855 100644
+--- a/firmware/src/main.rs
++++ b/firmware/src/main.rs
+@@ -1,5 +1,6 @@
+ #![no_std]
+ #![no_main]
++#![cfg_attr(feature = "doom", allow(dead_code))]
+ 
+ use core::{panic::PanicInfo, ptr::write_volatile};
+ use cortex_m_rt::{entry, exception};
+@@ -8,6 +9,8 @@ use embassy_hc32::pac::interrupt;
+ mod aw9523;
+ mod cc_frontend;
+ mod display;
++#[cfg(feature = "doom")]
++mod doom;
+ mod lines;
+ pub mod measurement;
+ mod orientation;
+@@ -34,7 +37,16 @@ const fn metadata() -> [u8; 64] {
+         data[i] = 0xff;
+         i += 1;
+     }
+-    let fields: [&[u8]; 3] = [b"KM003C", b"rust-rpc", b"2026.10.28"];
++    // HW2.3's native loader rejects versions whose first byte is not a digit.
++    let fields: [&[u8]; 3] = [
++        b"KM003C",
++        if cfg!(feature = "doom") {
++            b"2.0.7-doom"
++        } else {
++            b"rust-rpc"
++        },
++        b"2026.10.29",
++    ];
+     let mut field = 0;
+     while field < 3 {
+         i = 0;
+@@ -84,6 +96,7 @@ core::arch::global_asm!(
+ 
+ fn return_to_loader(status: u32) -> ! {
+     cortex_m::interrupt::disable();
++    #[cfg(not(feature = "doom"))]
+     pd_tx::release();
+     unsafe {
+         write_volatile(MARKER.add(3), status);
+@@ -96,6 +109,7 @@ fn return_to_loader(status: u32) -> ! {
+ /// Normal recovery can await the external expander before resetting the MCU.
+ /// Fault handlers cannot run I2C; they still stop the direct TX hardware above.
+ async fn enter_loader(status: u32) -> Result<(), &'static str> {
++    #[cfg(not(feature = "doom"))]
+     pd_tx::release_and_wait().await?;
+     return_to_loader(status)
+ }
+@@ -139,6 +153,7 @@ fn main() -> ! {
+     let hclk = clocks.hclk;
+     assert_eq!(hclk, 192_000_000);
+     log::info!("Clock readback: {clocks:?}");
++    #[cfg(not(feature = "doom"))]
+     pd_sink::init();
+     // No timer pin/output is enabled. PCLK1 is fixed after startup.
+     unsafe {
+@@ -174,16 +189,21 @@ fn main() -> ! {
+         cortex_m::interrupt::enable();
+     }
+     EXECUTOR.init(embassy_executor::Executor::new()).run(|s| {
+-        measurement::init();
+         s.spawn(usb_task(usb_driver, usb_route, s).unwrap());
+-        s.spawn(pd_tx::lease_task().unwrap());
+-        s.spawn(ui::task(aw).unwrap());
+-        s.spawn(cc_frontend::task(aw).unwrap());
++        #[cfg(feature = "doom")]
++        s.spawn(doom::task(aw).unwrap());
++        #[cfg(not(feature = "doom"))]
+         {
+-            s.spawn(measurement::task().unwrap());
+-            s.spawn(lines::task().unwrap());
++            measurement::init();
++            s.spawn(pd_tx::lease_task().unwrap());
++            s.spawn(ui::task(aw).unwrap());
++            s.spawn(cc_frontend::task(aw).unwrap());
++            {
++                s.spawn(measurement::task().unwrap());
++                s.spawn(lines::task().unwrap());
++            }
++            pd_service::start();
+         }
+-        pd_service::start();
+     })
+ }
+ 
+diff --git a/firmware/src/rpc.rs b/firmware/src/rpc.rs
+index c55488f..319e768 100644
+--- a/firmware/src/rpc.rs
++++ b/firmware/src/rpc.rs
+@@ -44,6 +44,24 @@ fn stream(_: &mut Context, _: VarHeader, enabled: bool) {
+ async fn loader(_: &mut Context, _: VarHeader, _: ()) -> LoaderResult {
+     crate::enter_loader(0x600d0002).await.map_err(|_| ())
+ }
++async fn game(_: &mut Context, _: VarHeader, command: GameCommand) -> GameReply {
++    #[cfg(feature = "doom")]
++    {
++        crate::doom::request(command).await
++    }
++    #[cfg(not(feature = "doom"))]
++    {
++        let _ = command;
++        GameReply {
++            code: 255,
++            len: 0,
++            data: [[0; 32]; 8],
++            frames: 0,
++            elapsed_ms: 0,
++            jedec: 0,
++        }
++    }
++}
+ define_dispatch! {
+     app: App;
+     spawn_fn: spawn_fn;
+@@ -59,6 +77,7 @@ define_dispatch! {
+         | SetStream | blocking | stream |
+         | EnterLoader | async | loader |
+         | ControlPd | blocking | pd_control |
++        | GameIo | async | game |
+ 
+     };
+     topics_in: {
