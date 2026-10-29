@@ -43,3 +43,7 @@ The v7 application was fully read back and the native loader was unchanged. The 
 ## USB late connection and reconnection
 
 The server was started with the HID cable unplugged and continued retrying beyond five failed helper sessions. After the cable was connected, live screen capture and keyboard control resumed; the user confirmed both on the same server. No firmware update was needed. Eleven Python tests pass, including helper failure/restart, clearing held keys across connections, rejecting stale helper output, preserving preview preference, accepting restarted device snapshot counters, and cancelling retries on Stop.
+
+## Responsive Web controller
+
+The preview and controls use two columns from 900 CSS pixels wide; narrower windows stack them. The layout was inspected at 1280×600, 1280×720, 1366×668, 1920×1080, 3840×2160, 900×600, and 390×844. Desktop layouts fit within the viewport with the footer visible; phone width uses vertical scrolling without horizontal overflow. The short-window check also verified that button text fits. Live capture and keyboard enable/release were checked, and the README screenshot was refreshed at 1280×720.

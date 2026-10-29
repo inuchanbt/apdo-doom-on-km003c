@@ -31,6 +31,10 @@ The server can start before the meter is connected. It automatically restarts th
 
 Run one controller process and one active control tab at a time. Stop it before running another USB CLI command or updating firmware.
 
+## Responsive panel
+
+At browser widths of 900 CSS pixels and above, the live preview and controls appear side by side. Preview size follows the available viewport height, and shorter desktop windows use compact spacing. At narrower widths, the panels stack vertically with normal page scrolling. No controls are hidden to make the desktop layout fit. The enclosure still rotates around the fixed video center.
+
 ## Physical LCD settings (v7)
 
 **Meter LCD** provides **Brightness − / +** buttons and **Rotate left / Rotate right** in 90° steps. Brightness is adjustable in 10% steps from 10% to 100%. Here 100% is the original verified LED drive level 70, not the expander's maximum output. The firmware rejects values outside those bounds.
