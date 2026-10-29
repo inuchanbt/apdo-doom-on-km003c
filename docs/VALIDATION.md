@@ -31,3 +31,7 @@ The public repository subsequently parameterizes local recovery paths and the bu
 ## PC controls (v5)
 
 The subsequent v5 update adds a separate leased-input endpoint and browser controller. Its whole application was read back and the loader was unchanged. A 300 ms forward command was accepted by the device and a later read-only input status showed all remote/applied keys released. The user confirmed movement, turning, and firing from the browser keyboard. The game engine and NOR game resources are unchanged. See [PC-CONTROLS.md](PC-CONTROLS.md) for input handling and focused test coverage.
+
+## Screen preview (v6)
+
+The v6 application was read back completely and its loader was unchanged. An actual 120×90 RGB565 snapshot from the device was retrieved, decoded, and displayed in the browser. The user confirmed live PC display and keyboard actions reflected in that image. Pausing image transfers kept gameplay and input active. The Rust suite passed 40 tests and the Python suite passed eight tests, including snapshot consistency, clipping, image bounds, byte order, orientation, padding, and HTTP handling. Raw BMP captures and transport timings are kept locally in `artifacts/`. See [SCREEN-CAPTURE.md](SCREEN-CAPTURE.md) for the capture path and performance limitations.

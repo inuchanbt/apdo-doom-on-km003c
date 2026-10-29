@@ -5,7 +5,10 @@ use km003c_interface::{GameInput, GameInputReply, GameInputRequest, GameInputSta
 use std::{
     collections::VecDeque,
     io::BufRead,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
     time::{Duration, Instant},
 };
 
@@ -81,15 +84,21 @@ impl InputQueue {
 
 /// Lines of decimal masks on stdin; one JSON status per USB acknowledgement.
 /// A queue preserves short taps between rendered frames. Heartbeats expire too.
-pub async fn control_stdin(selector: DeviceSelector) -> Result<()> {
+pub async fn control_stdin(selector: DeviceSelector, preview: bool) -> Result<()> {
     let client = Client::connect(selector).await?;
     let state = Arc::new(Mutex::new(InputQueue::new(Instant::now())));
     let reader_state = state.clone();
+    let preview_enabled = Arc::new(AtomicBool::new(preview));
+    let reader_preview = preview_enabled.clone();
     std::thread::spawn(move || {
         for line in std::io::stdin().lock().lines() {
             let Ok(line) = line else {
                 break;
             };
+            if line.trim() == "preview 0" || line.trim() == "preview 1" {
+                reader_preview.store(line.trim() == "preview 1", Ordering::Relaxed);
+                continue;
+            }
             let Ok(buttons) = line.trim().parse::<u8>() else {
                 break;
             };
@@ -99,7 +108,7 @@ pub async fn control_stdin(selector: DeviceSelector) -> Result<()> {
     });
     let interrupt = tokio::signal::ctrl_c();
     tokio::pin!(interrupt);
-    let result: Result<()> = async {
+    let control = async {
         loop {
             let (buttons, ended) = {
                 let mut input = state.lock().unwrap();
@@ -120,8 +129,15 @@ pub async fn control_stdin(selector: DeviceSelector) -> Result<()> {
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
         Ok(())
-    }
-    .await;
+    };
+    let result: Result<()> = if preview {
+        tokio::select! {
+            result = control => result,
+            _ = crate::screen::stream(&client, &preview_enabled) => Ok(()),
+        }
+    } else {
+        control.await
+    };
     let _ = exchange(
         &client,
         GameInputRequest::Set(GameInputState {

@@ -3,6 +3,7 @@
 import http.client
 import importlib.util
 import json
+import struct
 from pathlib import Path
 import threading
 import unittest
@@ -18,6 +19,7 @@ class FakeBridge:
 
     def __init__(self):
         self.inputs = []
+        self.preview = []
 
     def update(self, buttons):
         self.inputs.append(buttons)
@@ -25,6 +27,11 @@ class FakeBridge:
 
     def snapshot(self):
         return {"connected": True}
+    def frame(self):
+        return None
+    def set_preview(self, enabled):
+        self.preview.append(enabled)
+        return True
 
 
 class ControllerHttpTests(unittest.TestCase):
@@ -73,6 +80,31 @@ class ControllerHttpTests(unittest.TestCase):
     def test_private_files_are_not_served(self):
         self.assertEqual(self.request("/../local/device.json")[0], 404)
         self.assertEqual(self.request("/local/device.json")[0], 404)
+
+    def test_missing_frame_is_reported(self):
+        self.assertEqual(self.request("/api/frame.bmp?snapshot=1")[0], 404)
+
+    def test_preview_can_pause_without_sending_game_keys(self):
+        self.assertEqual(self.request("/api/preview", {"enabled": False})[0], 200)
+        self.assertEqual(self.request("/api/preview", {"enabled": True})[0], 200)
+        self.assertEqual(self.request("/api/preview", {"enabled": 1})[0], 400)
+        self.assertEqual(self.bridge.preview, [False, True])
+        self.assertEqual(self.bridge.inputs, [])
+
+
+class FrameEncodingTests(unittest.TestCase):
+    def test_rgb565_order_orientation_and_padding(self):
+        bitmap = controller.frame_bmp({"width": 1, "height": 2, "rgb565": "00f8e007"})
+        self.assertEqual(bitmap[:2], b"BM")
+        self.assertEqual(struct.unpack_from("<ii", bitmap, 18), (1, -2))
+        self.assertEqual(struct.unpack_from("<III", bitmap, 54), (0xf800, 0x07e0, 0x001f))
+        self.assertEqual(bitmap[66:], b"\x00\xf8\0\0\xe0\x07\0\0")
+    def test_rejects_truncated_and_unbounded_payloads(self):
+        for frame in ({"width": 120, "height": 90, "rgb565": "00"},
+                      {"width": 65535, "height": 90, "rgb565": ""},
+                      {"width": 1, "height": 1, "rgb565": "zzzz"}):
+            with self.subTest(frame=frame), self.assertRaises(ValueError):
+                controller.frame_bmp(frame)
 
 
 if __name__ == "__main__":

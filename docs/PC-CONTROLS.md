@@ -1,6 +1,6 @@
 # PC keyboard controls
 
-Firmware **2.0.7-doom5 (v5)** adds a separate USB game-input endpoint. The user confirmed movement, turning, and firing from the PC on the actual meter. Rendering and game simulation still run on the KM003C; the browser is a controller, not a video stream.
+Firmware **2.0.7-doom5 (v5)** adds a separate USB game-input endpoint. The user confirmed movement, turning, and firing from the PC on the actual meter. **v6** also adds a [120×90 RGB565 screen preview and image download](SCREEN-CAPTURE.md). Rendering and game simulation still run on the KM003C.
 
 ## Start
 
@@ -10,7 +10,7 @@ Connect only the side HID port to the PC. From the prepared workspace, after bui
 .\scripts\play.ps1
 ```
 
-The helper opens a local browser page. Click **Enable keyboard**, then play while watching the meter. The page also has holdable mouse/touch buttons. Keep the helper process running. Use **Stop controller** or Ctrl+C to exit; this releases PC inputs without stopping the game.
+The helper opens a local browser page. Click **Enable keyboard**, then play while watching the meter or the v6 preview. The page also has holdable mouse/touch buttons. Keep the helper process running. Use **Stop controller** or Ctrl+C to exit; this releases PC inputs without stopping the game.
 
 `play.ps1 -NoBrowser` prints the URL without opening a tab. The controller uses Python's standard library and the built Rust host CLI; no extra Python packages or web downloads are required. It listens only on `127.0.0.1` on a dynamically allocated port.
 
@@ -49,7 +49,7 @@ $cli = '.\vendor\km003c-firmware\target\release\km003c-host-cli.exe'
 & $cli game-input 0
 ```
 
-The status request does not renew or change held keys. Masks are: fire `1`, forward `2`, turn left `4`, turn right `8`, use `16`, menu `32`, confirm `64`, backward `128`. Combine them with bitwise OR. The `game-control` command maintains one USB connection, reads decimal masks line by line from stdin, and emits one JSON acknowledgement per exchange. EOF sends release; stale queued transitions are dropped.
+The status request does not renew or change held keys. Masks are: fire `1`, forward `2`, turn left `4`, turn right `8`, use `16`, menu `32`, confirm `64`, backward `128`. Combine them with bitwise OR. The `game-control` command maintains one USB connection, reads decimal masks line by line from stdin, and emits one JSON acknowledgement per exchange. EOF sends release; stale queued transitions are dropped. With `--preview`, it also emits completed `screen` records; stdin commands `preview 0` and `preview 1` pause/resume image capture without changing game keys.
 
 The HTTP helper validates the loopback Host, same-origin POSTs, a per-process session token, and byte-sized masks. It serves only the three controller assets and its explicit API routes; it does not expose the workspace or backups.
 

@@ -11,8 +11,13 @@
   <main>
     <header><span class="eyebrow">AUGMENTED POWER DOOM OBJECT</span><h1>Small screen.<br>Full keyboard.</h1><p>PC controls for DOOM on your KM003C.</p></header>
     <section class="status" aria-live="polite"><span id="dot"></span><strong id="connection">Connecting to meter…</strong><span id="performance">—</span></section>
+    <div class="toolbar"><button id="enable" class="primary">Enable keyboard</button><button id="release">Release all</button><span id="focus">Click Enable keyboard to play</span></div>
+    <section class="preview" aria-label="KM003C screen preview">
+      <div class="preview-heading"><strong>KM003C screen</strong><label><input id="preview-enabled" type="checkbox" checked> Live preview</label><span id="screen-info">Waiting for capture…</span><a id="save-frame" href="/api/frame.bmp" download="km003c-frame.bmp" hidden>Save frame</a></div>
+      <div class="screen-area"><img id="screen" alt="Live capture of the KM003C game display" hidden><p id="screen-placeholder">Waiting for the meter's first frame…</p></div>
+      <p id="screen-error" role="status"></p>
+    </section>
     <section class="controls">
-      <div class="toolbar"><button id="enable" class="primary">Enable keyboard</button><button id="release">Release all</button><span id="focus">Click Enable keyboard to play</span></div>
       <div class="layout">
         <div class="movement">
           <button data-mask="2" class="forward"><b>↑</b><small>W · Forward</small></button>
@@ -29,7 +34,7 @@
       </div>
       <p class="hint">Arrow keys also work. In menus, use ↑ / ↓ and Enter.<br>Keep this tab focused; switching away releases every key.</p>
     </section>
-    <footer><p>Look at the meter for the game. Controls can also be held with a mouse or touch.</p><button id="stop">Stop controller</button></footer>
+    <footer><p>Screen capture is 120×90 RGB565. Controls can also be held with a mouse or touch.</p><button id="stop">Stop controller</button></footer>
     <p id="error" role="alert"></p>
   </main>
 </body>

@@ -4,6 +4,7 @@ const keyMap = {KeyW:2,ArrowUp:2,KeyS:128,ArrowDown:128,KeyA:4,ArrowLeft:4,
 const pressed = new Map();
 let token = "", armed = false, stopped = false, sending = false;
 let pending = [];
+let screenSnapshot = 0;
 const $ = id => document.getElementById(id);
 function mask() { let value = 0; for (const bit of pressed.values()) value |= bit; return value; }
 function paint() {
@@ -31,6 +32,12 @@ function queue() { const value=mask(); if (pending.at(-1)!==value) pending.push(
 function releaseAll() { pressed.clear(); armed=false; pending=[]; queue(); }
 $("enable").addEventListener("click",()=>{armed=true;paint();});
 $("release").addEventListener("click",releaseAll);
+$("preview-enabled").addEventListener("change",async()=>{
+  try {
+    const response=await fetch("/api/preview",{method:"POST",headers:{"Content-Type":"application/json","X-APDO-Token":token},body:JSON.stringify({enabled:$("preview-enabled").checked})});
+    if(!response.ok) throw new Error("Could not change preview state");
+  } catch(error) { $("screen-error").textContent=error.message; }
+});
 window.addEventListener("keydown",event=>{
   if (!armed || !(event.code in keyMap)) return;
   event.preventDefault();
@@ -64,8 +71,17 @@ async function status() {
     const response=await fetch("/api/status"); const state=await response.json();
     $("connection").textContent=state.connected ? (state.running ? "Meter connected · game running" : "Meter connected · waiting for game") : "Waiting for USB connection…";
     $("dot").classList.toggle("connected",state.connected);
-    $("performance").textContent=state.frame_ms ? `${(1000/state.frame_ms).toFixed(1)} fps · ${state.frames} frames` : "—";
+    $("performance").textContent=state.render_fps ? `${state.render_fps.toFixed(1)} game fps · ${state.frames} frames` : "—";
     $("error").textContent=state.error || "";
+    if(state.screen && state.screen.snapshot !== screenSnapshot) {
+      screenSnapshot=state.screen.snapshot;
+      $("screen").src=`/api/frame.bmp?snapshot=${screenSnapshot}`;
+      $("screen").hidden=false; $("screen-placeholder").hidden=true; $("save-frame").hidden=false;
+      const fps=state.screen.preview_fps ? `${state.screen.preview_fps.toFixed(1)} fps` : "captured";
+      $("screen-info").textContent=`${state.screen.width}×${state.screen.height} · ${fps} · frame ${state.screen.game_frame}`;
+    }
+    $("screen-error").textContent=state.screen_error || "";
+    if(state.preview_enabled===false) $("screen-info").textContent="Preview paused";
   } catch { $("connection").textContent="Controller offline"; $("dot").classList.remove("connected"); releaseAll(); }
 }
 fetch("/api/session").then(response=>response.json()).then(session=>{token=session.token;queue();void status();}).catch(error=>{$("error").textContent=error.message;});

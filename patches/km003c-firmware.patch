@@ -1,8 +1,8 @@
 diff --git a/crates/km003c-host-cli/src/main.rs b/crates/km003c-host-cli/src/main.rs
-index e855d65..0a2f0e2 100644
+index e855d65..4027d6b 100644
 --- a/crates/km003c-host-cli/src/main.rs
 +++ b/crates/km003c-host-cli/src/main.rs
-@@ -24,6 +24,47 @@ struct Args {
+@@ -24,6 +24,50 @@ struct Args {
  }
  #[derive(Subcommand)]
  enum Command {
@@ -12,7 +12,10 @@ index e855d65..0a2f0e2 100644
 +    StockStart,
 +    GameStatus,
 +    /// Accept decimal key masks on stdin; emit JSON acknowledgements.
-+    GameControl,
++    GameControl {
++        #[arg(long)]
++        preview: bool,
++    },
 +    GameInput {
 +        buttons: u8,
 +        #[arg(long, default_value_t = 750)]
@@ -50,7 +53,7 @@ index e855d65..0a2f0e2 100644
      Status,
      /// Current PD owner and last command/session results.
      PdStatus,
-@@ -88,6 +129,53 @@ async fn main() -> Result<()> {
+@@ -88,6 +132,55 @@ async fn main() -> Result<()> {
          .serial
          .map_or(DeviceSelector::First, DeviceSelector::SerialNumber);
      match args.command {
@@ -61,7 +64,9 @@ index e855d65..0a2f0e2 100644
 +        }
 +        Command::StockStart => km003c_host_lib::stock::start(selector).await?,
 +        Command::GameStatus => km003c_host_lib::game::status(selector).await?,
-+        Command::GameControl => km003c_host_lib::controller::control_stdin(selector).await?,
++        Command::GameControl { preview } => {
++            km003c_host_lib::controller::control_stdin(selector, preview).await?
++        }
 +        Command::GameInput { buttons, lease_ms } => {
 +            println!(
 +                "{:#?}",
@@ -105,10 +110,10 @@ index e855d65..0a2f0e2 100644
              let data = package::package(&std::fs::read(&binary)?)?;
              use std::io::Write;
 diff --git a/crates/km003c-host-lib/src/lib.rs b/crates/km003c-host-lib/src/lib.rs
-index d5e2736..e696f7f 100644
+index d5e2736..b0dd8c2 100644
 --- a/crates/km003c-host-lib/src/lib.rs
 +++ b/crates/km003c-host-lib/src/lib.rs
-@@ -1,8 +1,11 @@
+@@ -1,8 +1,12 @@
  //! Reusable host runtime: RPC, recording, experiments and native-loader updates.
  pub mod capture;
 +pub mod controller;
@@ -117,6 +122,7 @@ index d5e2736..e696f7f 100644
  pub mod maneuver;
  pub mod package;
  pub mod rpc;
++pub mod screen;
 +pub mod stock;
  pub use km003c_interface as interface;
  pub use km003c_lib::DeviceSelector;
@@ -204,13 +210,15 @@ index 84e31f2..81295da 100644
  
  pub async fn diagnostics(selector: DeviceSelector, output: &Path) -> Result<()> {
 diff --git a/crates/km003c-interface/src/lib.rs b/crates/km003c-interface/src/lib.rs
-index d2e58f5..296e4d8 100644
+index d2e58f5..cf38bd8 100644
 --- a/crates/km003c-interface/src/lib.rs
 +++ b/crates/km003c-interface/src/lib.rs
-@@ -23,6 +23,159 @@ pub struct Measurement {
+@@ -23,6 +23,161 @@ pub struct Measurement {
      pub lines_uv: Option<[u32; 4]>,
  }
  pub type LoaderResult = Result<(), ()>;
++pub mod preview;
++use preview::{ScreenChunk, ScreenInfo, ScreenRead};
 +// A bounded inline page is intentional: this no_std wire contract uses no heap.
 +#[allow(clippy::large_enum_variant)]
 +#[derive(Debug, Clone, Copy, Serialize, Deserialize, Schema)]
@@ -367,12 +375,14 @@ index d2e58f5..296e4d8 100644
  postcard_rpc::endpoints! {
      list = ENDPOINTS;
      | EndpointTy | RequestTy | ResponseTy | Path |
-@@ -32,6 +185,8 @@ postcard_rpc::endpoints! {
+@@ -32,6 +187,10 @@ postcard_rpc::endpoints! {
      | SetStream | bool | () | "km003c/stream" |
      | EnterLoader | () | LoaderResult | "km003c/loader" |
      | ControlPd | PdControl | ControlResult | "km003c/pd/control" |
 +    | GameIo | GameCommand | GameReply | "km003c/doom/io" |
 +    | GameInput | GameInputRequest | GameInputReply | "km003c/doom/input" |
++    | CaptureScreen | () | ScreenInfo | "km003c/doom/screen/capture" |
++    | ReadScreen | ScreenRead | ScreenChunk | "km003c/doom/screen/read" |
  }
  postcard_rpc::topics! {
      list = TOPICS_IN;
@@ -506,18 +516,21 @@ index 76e66b9..c5f84f4 100644
      /// erase command. Call before panel init while this owner has the entire
      /// shared QSPI bus. Leave flash in standard SPI, which also works after a
 diff --git a/firmware/src/main.rs b/firmware/src/main.rs
-index 7231bba..9d2cb6f 100644
+index 7231bba..361b80e 100644
 --- a/firmware/src/main.rs
 +++ b/firmware/src/main.rs
-@@ -1,5 +1,6 @@
+@@ -1,13 +1,18 @@
  #![no_std]
  #![no_main]
 +#![cfg_attr(feature = "doom", allow(dead_code))]
  
  use core::{panic::PanicInfo, ptr::write_volatile};
  use cortex_m_rt::{entry, exception};
-@@ -8,6 +9,8 @@ use embassy_hc32::pac::interrupt;
+ use embassy_hc32::pac::interrupt;
+ 
  mod aw9523;
++#[cfg(feature = "doom")]
++mod capture;
  mod cc_frontend;
  mod display;
 +#[cfg(feature = "doom")]
@@ -525,7 +538,7 @@ index 7231bba..9d2cb6f 100644
  mod lines;
  pub mod measurement;
  mod orientation;
-@@ -34,7 +37,16 @@ const fn metadata() -> [u8; 64] {
+@@ -34,7 +39,16 @@ const fn metadata() -> [u8; 64] {
          data[i] = 0xff;
          i += 1;
      }
@@ -534,7 +547,7 @@ index 7231bba..9d2cb6f 100644
 +    let fields: [&[u8]; 3] = [
 +        b"KM003C",
 +        if cfg!(feature = "doom") {
-+            b"2.0.7-doom5"
++            b"2.0.7-doom6"
 +        } else {
 +            b"rust-rpc"
 +        },
@@ -543,7 +556,7 @@ index 7231bba..9d2cb6f 100644
      let mut field = 0;
      while field < 3 {
          i = 0;
-@@ -84,6 +96,7 @@ core::arch::global_asm!(
+@@ -84,6 +98,7 @@ core::arch::global_asm!(
  
  fn return_to_loader(status: u32) -> ! {
      cortex_m::interrupt::disable();
@@ -551,7 +564,7 @@ index 7231bba..9d2cb6f 100644
      pd_tx::release();
      unsafe {
          write_volatile(MARKER.add(3), status);
-@@ -96,6 +109,7 @@ fn return_to_loader(status: u32) -> ! {
+@@ -96,6 +111,7 @@ fn return_to_loader(status: u32) -> ! {
  /// Normal recovery can await the external expander before resetting the MCU.
  /// Fault handlers cannot run I2C; they still stop the direct TX hardware above.
  async fn enter_loader(status: u32) -> Result<(), &'static str> {
@@ -559,7 +572,7 @@ index 7231bba..9d2cb6f 100644
      pd_tx::release_and_wait().await?;
      return_to_loader(status)
  }
-@@ -139,6 +153,7 @@ fn main() -> ! {
+@@ -139,6 +155,7 @@ fn main() -> ! {
      let hclk = clocks.hclk;
      assert_eq!(hclk, 192_000_000);
      log::info!("Clock readback: {clocks:?}");
@@ -567,7 +580,7 @@ index 7231bba..9d2cb6f 100644
      pd_sink::init();
      // No timer pin/output is enabled. PCLK1 is fixed after startup.
      unsafe {
-@@ -174,16 +189,21 @@ fn main() -> ! {
+@@ -174,16 +191,21 @@ fn main() -> ! {
          cortex_m::interrupt::enable();
      }
      EXECUTOR.init(embassy_executor::Executor::new()).run(|s| {
@@ -597,10 +610,10 @@ index 7231bba..9d2cb6f 100644
  }
  
 diff --git a/firmware/src/rpc.rs b/firmware/src/rpc.rs
-index c55488f..a5d8e6a 100644
+index c55488f..bad4177 100644
 --- a/firmware/src/rpc.rs
 +++ b/firmware/src/rpc.rs
-@@ -44,6 +44,43 @@ fn stream(_: &mut Context, _: VarHeader, enabled: bool) {
+@@ -44,6 +44,80 @@ fn stream(_: &mut Context, _: VarHeader, enabled: bool) {
  async fn loader(_: &mut Context, _: VarHeader, _: ()) -> LoaderResult {
      crate::enter_loader(0x600d0002).await.map_err(|_| ())
  }
@@ -641,15 +654,70 @@ index c55488f..a5d8e6a 100644
 +        }
 +    }
 +}
++fn capture_screen(_: &mut Context, _: VarHeader, _: ()) -> preview::ScreenInfo {
++    #[cfg(feature = "doom")]
++    {
++        crate::capture::snapshot()
++    }
++    #[cfg(not(feature = "doom"))]
++    {
++        preview::ScreenInfo {
++            snapshot: 0,
++            game_frame: 0,
++            width: 0,
++            height: 0,
++            bytes: 0,
++        }
++    }
++}
++fn read_screen(
++    _: &mut Context,
++    _: VarHeader,
++    request: preview::ScreenRead,
++) -> preview::ScreenChunk {
++    #[cfg(feature = "doom")]
++    {
++        crate::capture::read(request)
++    }
++    #[cfg(not(feature = "doom"))]
++    {
++        let _ = request;
++        preview::ScreenChunk {
++            valid: false,
++            snapshot: 0,
++            offset: 0,
++            len: 0,
++            data: [[[0; 32]; 16]; 8],
++        }
++    }
++}
  define_dispatch! {
      app: App;
      spawn_fn: spawn_fn;
-@@ -59,6 +96,8 @@ define_dispatch! {
+@@ -59,6 +133,10 @@ define_dispatch! {
          | SetStream | blocking | stream |
          | EnterLoader | async | loader |
          | ControlPd | blocking | pd_control |
 +        | GameIo | async | game |
 +        | GameInput | async | game_input |
++        | CaptureScreen | blocking | capture_screen |
++        | ReadScreen | blocking | read_screen |
  
      };
      topics_in: {
+@@ -70,13 +148,13 @@ define_dispatch! {
+ }
+ pub async fn run(driver: Driver<'static>, spawner: embassy_executor::Spawner) {
+     static STORAGE: WireStorage<CriticalSectionRawMutex, Driver<'static>> = WireStorage::new();
+-    static TX: static_cell::StaticCell<[u8; 512]> = static_cell::StaticCell::new();
++    static TX: static_cell::StaticCell<[u8; 4160]> = static_cell::StaticCell::new();
+     static RX: static_cell::StaticCell<[u8; 512]> = static_cell::StaticCell::new();
+     let mut config = embassy_usb::Config::new(0x5fc9, 0x0063);
+     config.manufacturer = Some("KM003C experimental");
+     config.product = Some("KM003C Rust RPC");
+     config.serial_number = Some("rust-bringup");
+-    let (mut usb, tx, rx) = STORAGE.init(driver, config, TX.init([0; 512]), 64);
++    let (mut usb, tx, rx) = STORAGE.init(driver, config, TX.init([0; 4160]), 64);
+     let app = App::new(Context, WireSpawnImpl::from(spawner));
+     let key = app.min_key_len();
+     let mut server =

@@ -8,11 +8,32 @@ import os
 from pathlib import Path
 import secrets
 import subprocess
+import struct
 import threading
 import time
 import webbrowser
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def frame_bmp(screen):
+    """Wrap top-down RGB565 pixels in a browser-readable, lossless BMP."""
+    if not isinstance(screen, dict):
+        raise ValueError("Invalid screen metadata")
+    width, height = screen.get("width"), screen.get("height")
+    pixels = screen.get("rgb565")
+    if (type(width) is not int or type(height) is not int or not 1 <= width <= 240 or
+            not 1 <= height <= 240 or not isinstance(pixels, str) or len(pixels) != width * height * 4):
+        raise ValueError("Invalid screen geometry or payload")
+    raw = bytes.fromhex(pixels)
+    if len(raw) != width * height * 2:
+        raise ValueError("Invalid RGB565 data")
+    stride = (width * 2 + 3) & ~3
+    padding = bytes(stride - width * 2)
+    data = b"".join(raw[y * width * 2:(y + 1) * width * 2] + padding for y in range(height))
+    header = struct.pack("<2sIHHI", b"BM", 66 + len(data), 0, 0, 66)
+    dib = struct.pack("<IiiHHIIiiII", 40, width, -height, 1, 16, 3, len(data), 0, 0, 0, 0)
+    return header + dib + struct.pack("<III", 0xf800, 0x07e0, 0x001f) + data
 
 
 class Bridge:
@@ -25,9 +46,17 @@ class Bridge:
         self.received = 0.0
         self.history = deque(maxlen=32)
         self.error = ""
+        self.screen_error = ""
+        self.screen_info = None
+        self.screen_bmp = None
+        self.screen_received = 0.0
+        self.preview_enabled = True
+        self.render_fps = 0.0
+        self.rate_frame = None
+        self.rate_time = 0.0
         self.stopped = threading.Event()
         self.process = subprocess.Popen(
-            [str(cli), "game-control"], cwd=ROOT, stdin=subprocess.PIPE,
+            [str(cli), "game-control", "--preview"], cwd=ROOT, stdin=subprocess.PIPE,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
             encoding="utf-8", errors="replace", bufsize=1,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
@@ -60,10 +89,35 @@ class Bridge:
         for line in self.process.stdout:
             try:
                 reply = json.loads(line)
+                if not isinstance(reply, dict):
+                    continue
+                if "screen" in reply:
+                    frame = reply["screen"]
+                    bitmap = frame_bmp(frame)
+                    with self.lock:
+                        now = time.monotonic()
+                        interval = now - self.screen_received if self.screen_received else 0
+                        self.screen_bmp = bitmap
+                        self.screen_info = {key: value for key, value in frame.items() if key != "rgb565"}
+                        self.screen_info["preview_fps"] = 1 / interval if interval else 0
+                        self.screen_received = now
+                        self.screen_error = ""
+                    continue
+                if "screen_error" in reply:
+                    with self.lock:
+                        self.screen_error = str(reply["screen_error"])
+                    continue
             except ValueError:
                 continue
             with self.lock:
-                self.reply, self.received = reply, time.monotonic()
+                now = time.monotonic()
+                frame = reply.get("frames")
+                if type(frame) is int and frame != self.rate_frame:
+                    if self.rate_frame is not None and frame > self.rate_frame:
+                        rate = (frame - self.rate_frame) / max(now - self.rate_time, 0.001)
+                        self.render_fps = rate if not self.render_fps else self.render_fps * 0.6 + rate * 0.4
+                    self.rate_frame, self.rate_time = frame, now
+                self.reply, self.received = reply, now
                 self.history.append(reply)
 
     def read_errors(self):
@@ -76,7 +130,18 @@ class Bridge:
         with self.lock:
             return dict(self.reply, connected=self.process.poll() is None and
                         time.monotonic() - self.received < 2, error=self.error,
-                        recent_inputs=list(self.history))
+                        recent_inputs=list(self.history), screen=self.screen_info,
+                        screen_error=self.screen_error, preview_enabled=self.preview_enabled,
+                        render_fps=self.render_fps)
+
+    def frame(self):
+        with self.lock:
+            return self.screen_bmp
+
+    def set_preview(self, enabled):
+        with self.lock:
+            self.preview_enabled = enabled
+            return self.write_locked(f"preview {int(enabled)}")
 
     def close(self):
         self.stopped.set()
@@ -120,6 +185,9 @@ def handler_for(bridge):
                 return self.respond(200, {"token": bridge.token})
             if self.path == "/api/status":
                 return self.respond(200, bridge.snapshot())
+            if self.path.split("?", 1)[0] == "/api/frame.bmp":
+                bitmap = bridge.frame()
+                return self.respond(200, bitmap, "image/bmp") if bitmap else self.respond(404, {"error": "No captured frame yet"})
             assets = {"/": ("controller.html", "text/html; charset=utf-8"),
                       "/controller.js": ("controller.js", "text/javascript; charset=utf-8"),
                       "/controller.css": ("controller.css", "text/css; charset=utf-8")}
@@ -149,6 +217,11 @@ def handler_for(bridge):
                     if type(buttons) is not int or not 0 <= buttons <= 255:
                         raise ValueError()
                     ok = bridge.update(buttons)
+                    return self.respond(200 if ok else 409, {"ok": ok})
+                if self.path == "/api/preview":
+                    if type(data.get("enabled")) is not bool:
+                        raise ValueError()
+                    ok = bridge.set_preview(data["enabled"])
                     return self.respond(200 if ok else 409, {"ok": ok})
                 if self.path == "/api/stop":
                     bridge.update(0)

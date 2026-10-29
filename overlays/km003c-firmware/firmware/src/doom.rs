@@ -71,6 +71,7 @@ unsafe extern "C" fn km_column(x: i32, y: i32, height: i32, pixels: *const u16) 
         return;
     }
     let source = unsafe { core::slice::from_raw_parts(pixels, height as usize) };
+    crate::capture::column(x as usize, y as usize, source);
     let mut out = [Rgb565::BLACK; 180];
     let mut count = 0;
     for (i, &c) in source.iter().enumerate() {
@@ -284,7 +285,9 @@ pub async fn task(aw: crate::aw9523::Aw9523) {
             }
             elapsed_ms = start.elapsed().as_millis() as u32;
             frames = frames.wrapping_add(1);
+            crate::capture::finished(frames);
         }
-        embassy_time::Timer::after_millis(1).await;
+        // Leave USB a short burst window while a preview is being transferred.
+        embassy_time::Timer::after_millis(if crate::capture::active() { 8 } else { 1 }).await;
     }
 }
