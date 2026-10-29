@@ -210,13 +210,15 @@ index 84e31f2..81295da 100644
  
  pub async fn diagnostics(selector: DeviceSelector, output: &Path) -> Result<()> {
 diff --git a/crates/km003c-interface/src/lib.rs b/crates/km003c-interface/src/lib.rs
-index d2e58f5..cf38bd8 100644
+index d2e58f5..8860e4e 100644
 --- a/crates/km003c-interface/src/lib.rs
 +++ b/crates/km003c-interface/src/lib.rs
-@@ -23,6 +23,161 @@ pub struct Measurement {
+@@ -23,6 +23,163 @@ pub struct Measurement {
      pub lines_uv: Option<[u32; 4]>,
  }
  pub type LoaderResult = Result<(), ()>;
++pub mod display_control;
++use display_control::{DisplayReply, DisplayRequest};
 +pub mod preview;
 +use preview::{ScreenChunk, ScreenInfo, ScreenRead};
 +// A bounded inline page is intentional: this no_std wire contract uses no heap.
@@ -375,7 +377,7 @@ index d2e58f5..cf38bd8 100644
  postcard_rpc::endpoints! {
      list = ENDPOINTS;
      | EndpointTy | RequestTy | ResponseTy | Path |
-@@ -32,6 +187,10 @@ postcard_rpc::endpoints! {
+@@ -32,6 +189,11 @@ postcard_rpc::endpoints! {
      | SetStream | bool | () | "km003c/stream" |
      | EnterLoader | () | LoaderResult | "km003c/loader" |
      | ControlPd | PdControl | ControlResult | "km003c/pd/control" |
@@ -383,6 +385,7 @@ index d2e58f5..cf38bd8 100644
 +    | GameInput | GameInputRequest | GameInputReply | "km003c/doom/input" |
 +    | CaptureScreen | () | ScreenInfo | "km003c/doom/screen/capture" |
 +    | ReadScreen | ScreenRead | ScreenChunk | "km003c/doom/screen/read" |
++    | ControlDisplay | DisplayRequest | DisplayReply | "km003c/doom/display" |
  }
  postcard_rpc::topics! {
      list = TOPICS_IN;
@@ -516,7 +519,7 @@ index 76e66b9..c5f84f4 100644
      /// erase command. Call before panel init while this owner has the entire
      /// shared QSPI bus. Leave flash in standard SPI, which also works after a
 diff --git a/firmware/src/main.rs b/firmware/src/main.rs
-index 7231bba..361b80e 100644
+index 7231bba..37c6448 100644
 --- a/firmware/src/main.rs
 +++ b/firmware/src/main.rs
 @@ -1,13 +1,18 @@
@@ -547,7 +550,7 @@ index 7231bba..361b80e 100644
 +    let fields: [&[u8]; 3] = [
 +        b"KM003C",
 +        if cfg!(feature = "doom") {
-+            b"2.0.7-doom6"
++            b"2.0.7-doom7"
 +        } else {
 +            b"rust-rpc"
 +        },
@@ -610,10 +613,10 @@ index 7231bba..361b80e 100644
  }
  
 diff --git a/firmware/src/rpc.rs b/firmware/src/rpc.rs
-index c55488f..bad4177 100644
+index c55488f..d817170 100644
 --- a/firmware/src/rpc.rs
 +++ b/firmware/src/rpc.rs
-@@ -44,6 +44,80 @@ fn stream(_: &mut Context, _: VarHeader, enabled: bool) {
+@@ -44,6 +44,99 @@ fn stream(_: &mut Context, _: VarHeader, enabled: bool) {
  async fn loader(_: &mut Context, _: VarHeader, _: ()) -> LoaderResult {
      crate::enter_loader(0x600d0002).await.map_err(|_| ())
  }
@@ -651,6 +654,25 @@ index c55488f..bad4177 100644
 +            menu_active: false,
 +            frames: 0,
 +            frame_ms: 0,
++        }
++    }
++}
++async fn control_display(
++    _: &mut Context,
++    _: VarHeader,
++    request: display_control::DisplayRequest,
++) -> display_control::DisplayReply {
++    #[cfg(feature = "doom")]
++    {
++        crate::doom::display_control(request).await
++    }
++    #[cfg(not(feature = "doom"))]
++    {
++        let _ = request;
++        display_control::DisplayReply {
++            accepted: false,
++            brightness: 0,
++            rotation: 0,
 +        }
 +    }
 +}
@@ -694,7 +716,7 @@ index c55488f..bad4177 100644
  define_dispatch! {
      app: App;
      spawn_fn: spawn_fn;
-@@ -59,6 +133,10 @@ define_dispatch! {
+@@ -59,6 +152,11 @@ define_dispatch! {
          | SetStream | blocking | stream |
          | EnterLoader | async | loader |
          | ControlPd | blocking | pd_control |
@@ -702,10 +724,11 @@ index c55488f..bad4177 100644
 +        | GameInput | async | game_input |
 +        | CaptureScreen | blocking | capture_screen |
 +        | ReadScreen | blocking | read_screen |
++        | ControlDisplay | async | control_display |
  
      };
      topics_in: {
-@@ -70,13 +148,13 @@ define_dispatch! {
+@@ -70,13 +168,13 @@ define_dispatch! {
  }
  pub async fn run(driver: Driver<'static>, spawner: embassy_executor::Spawner) {
      static STORAGE: WireStorage<CriticalSectionRawMutex, Driver<'static>> = WireStorage::new();

@@ -10,6 +10,8 @@ static char error[192];
 static jmp_buf bail_out;
 void km_doom_init(void);
 void km_doom_step(void);
+void km_doom_redraw(void);
+void D_Display(void);
 uint32_t km_millis(void) { return clock_ms; }
 void km_sleep(uint32_t ms) { clock_ms+=ms; }
 uint32_t km_keys(void) { return buttons; }
@@ -36,3 +38,7 @@ __declspec(dllexport) int km_host_step(uint32_t keys) {
 }
 __declspec(dllexport) const char *km_host_error(void) { return error; }
 __declspec(dllexport) const uint16_t *km_host_screen(void) { return screen; }
+__declspec(dllexport) void km_host_redraw(void) { km_doom_redraw();D_Display(); }
+__declspec(dllexport) void km_host_clear_and_redraw(void) {
+    memset(screen,0,sizeof(screen));km_doom_redraw();D_Display();
+}

@@ -43,3 +43,5 @@ Tests exercise coordinate mapping, clipping, persistence of partially redrawn re
 The user confirmed that the device's game image updates on the PC and that keyboard actions are reflected in that image. Pausing preview transfers was also verified while the game and input connection remained active.
 
 The HTTP API serves the latest completed BMP at `/api/frame.bmp`. It exposes the bounded game image, not workspace files or recovery backups. Python uses only its standard library to construct the BMP; Pillow is not required for playing or saving images.
+
+With v7, the device illustration and live inset rotate together when the physical LCD rotation is acknowledged. The source BMP stays upright, so downloaded frames retain their original orientation. The calibrated inset width (20 px narrower) and horizontal offset (4 px left) stay fixed in the device coordinate system.

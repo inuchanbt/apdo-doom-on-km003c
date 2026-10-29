@@ -35,3 +35,7 @@ The subsequent v5 update adds a separate leased-input endpoint and browser contr
 ## Screen preview (v6)
 
 The v6 application was read back completely and its loader was unchanged. An actual 120×90 RGB565 snapshot from the device was retrieved, decoded, and displayed in the browser. The user confirmed live PC display and keyboard actions reflected in that image. Pausing image transfers kept gameplay and input active. The Rust suite passed 40 tests and the Python suite passed eight tests, including snapshot consistency, clipping, image bounds, byte order, orientation, padding, and HTTP handling. Raw BMP captures and transport timings are kept locally in `artifacts/`. See [SCREEN-CAPTURE.md](SCREEN-CAPTURE.md) for the capture path and performance limitations.
+
+## Physical LCD controls (v7)
+
+The v7 application was fully read back and the native loader was unchanged. The user confirmed physical brightness changes, left/right rotation, and correct display including the HUD. The Rust suite passed 41 tests and the HTTP/BMP suite passed nine, including display value bounds and same-origin enforcement. Rotation uses the board driver's streamed quarter-turn transform; it clears the physical LCD and invalidates the engine's status-bar redraw state. A host engine check clears its simulated LCD and verifies that a redraw restores all status-bar pixels without advancing game time.

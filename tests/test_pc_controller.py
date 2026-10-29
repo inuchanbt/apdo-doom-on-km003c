@@ -20,6 +20,7 @@ class FakeBridge:
     def __init__(self):
         self.inputs = []
         self.preview = []
+        self.display = []
 
     def update(self, buttons):
         self.inputs.append(buttons)
@@ -31,6 +32,9 @@ class FakeBridge:
         return None
     def set_preview(self, enabled):
         self.preview.append(enabled)
+        return True
+    def set_display(self, setting, value):
+        self.display.append((setting, value))
         return True
 
 
@@ -90,6 +94,16 @@ class ControllerHttpTests(unittest.TestCase):
         self.assertEqual(self.request("/api/preview", {"enabled": 1})[0], 400)
         self.assertEqual(self.bridge.preview, [False, True])
         self.assertEqual(self.bridge.inputs, [])
+
+    def test_lcd_settings_validate_values_without_sending_game_keys(self):
+        for setting, value in [("brightness", 10), ("brightness", 100), ("rotation", 0), ("rotation", 3)]:
+            self.assertEqual(self.request("/api/display", {"setting": setting, "value": value})[0], 200)
+        self.assertEqual(len(self.bridge.display), 4)
+        for setting, value in [("brightness", 0), ("brightness", 101), ("rotation", 4), ("rotation", True), ("loader", 1)]:
+            self.assertEqual(self.request("/api/display", {"setting": setting, "value": value})[0], 400)
+        self.assertEqual(len(self.bridge.display), 4)
+        self.assertEqual(self.bridge.inputs, [])
+        self.assertEqual(self.request("/api/display", {"setting": "rotation", "value": 1}, {"Origin": "https://example.com"})[0], 403)
 
 
 class FrameEncodingTests(unittest.TestCase):

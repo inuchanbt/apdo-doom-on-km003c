@@ -245,3 +245,5 @@ void km_doom_step(void) {
     I_StartFrame();TryRunTics();S_UpdateSounds(players[consoleplayer].mo);D_Display();
 }
 int km_doom_menu(void) { return menuactive || messageToPrint; }
+// This port has no wipe animation; invalidating this state forces a full HUD redraw.
+void km_doom_redraw(void) { wipegamestate = (gamestate_t)-1; }

@@ -27,6 +27,14 @@ Use **Release all** to clear inputs. Switching tabs, minimizing, or clicking out
 
 Run one controller process and one active control tab at a time. Stop it before running another USB CLI command or updating firmware.
 
+## Physical LCD settings (v7)
+
+**Meter LCD** provides **Brightness − / +** buttons and **Rotate left / Rotate right** in 90° steps. Brightness is adjustable in 10% steps from 10% to 100%. Here 100% is the original verified LED drive level 70, not the expander's maximum output. The firmware rejects values outside those bounds.
+
+The buttons release and disarm keyboard input before sending a setting. Displayed values follow the device acknowledgement. Rotation clears the LCD and forces a full status-bar redraw; gameplay continues. The KM003C illustration and its live inset turn together to follow the acknowledged orientation. Raw capture and saved BMP images remain upright because sampling happens before LCD rotation/backlight; the PC picture does not darken. Settings live in RAM only: power-up restores 100% brightness and 0° rotation. Enable keyboard again after adjusting them.
+
+The separate `km003c/doom/display` endpoint accepts status, brightness, or absolute quarter-turn rotation and returns the accepted state. The existing storage/recovery and input schemas remain unchanged. On `game-control` stdin, `brightness 50` and `rotation 3` set 50% and 270° clockwise (90° left); acknowledgements use separate `display` JSON records.
+
 ## Input behavior
 
 - PC keys are combined with the physical game buttons. The long-Exit-to-loader gesture uses only the physical Exit button; holding PC fire does not trigger it.
@@ -51,7 +59,7 @@ $cli = '.\vendor\km003c-firmware\target\release\km003c-host-cli.exe'
 
 The status request does not renew or change held keys. Masks are: fire `1`, forward `2`, turn left `4`, turn right `8`, use `16`, menu `32`, confirm `64`, backward `128`. Combine them with bitwise OR. The `game-control` command maintains one USB connection, reads decimal masks line by line from stdin, and emits one JSON acknowledgement per exchange. EOF sends release; stale queued transitions are dropped. With `--preview`, it also emits completed `screen` records; stdin commands `preview 0` and `preview 1` pause/resume image capture without changing game keys.
 
-The HTTP helper validates the loopback Host, same-origin POSTs, a per-process session token, and byte-sized masks. It serves only the three controller assets and its explicit API routes; it does not expose the workspace or backups.
+The HTTP helper validates the loopback Host, same-origin POSTs, a per-process session token, and byte-sized masks. It serves only the allowlisted controller assets and its explicit API routes; it does not expose the workspace or backups.
 
 ## Validation
 

@@ -5,6 +5,8 @@ const pressed = new Map();
 let token = "", armed = false, stopped = false, sending = false;
 let pending = [];
 let screenSnapshot = 0;
+let lcd = null, displayBusy = false;
+let mockupTurns = 0, lastLcdRotation = 0;
 const $ = id => document.getElementById(id);
 function mask() { let value = 0; for (const bit of pressed.values()) value |= bit; return value; }
 function paint() {
@@ -30,6 +32,39 @@ async function sendPending() {
 }
 function queue() { const value=mask(); if (pending.at(-1)!==value) pending.push(value); paint(); void sendPending(); }
 function releaseAll() { pressed.clear(); armed=false; pending=[]; queue(); }
+function paintLcd(connected) {
+  if(lcd) {
+    mockupTurns += (lcd.rotation-lastLcdRotation+6)%4-2;
+    lastLcdRotation=lcd.rotation;
+    document.querySelector(".device-mockup").style.setProperty("--lcd-turn",`${mockupTurns*90}deg`);
+  }
+  $("brightness").textContent=lcd ? `${lcd.brightness}%` : "—";
+  $("rotation").textContent=lcd ? `${lcd.rotation*90}°` : "—";
+  for(const id of ["dim","brighten","rotate-left","rotate-right"]) $(id).disabled=stopped || !connected || !lcd || displayBusy;
+  if(lcd) { $("dim").disabled ||= lcd.brightness<=10; $("brighten").disabled ||= lcd.brightness>=100; }
+}
+async function setLcd(setting,value) {
+  if(displayBusy || !lcd) return;
+  releaseAll(); displayBusy=true; paintLcd(true);
+  try {
+    const response=await fetch("/api/display",{method:"POST",headers:{"Content-Type":"application/json","X-APDO-Token":token},body:JSON.stringify({setting,value})});
+    if(!response.ok) throw new Error("Could not send LCD setting");
+    // Wait for the device acknowledgement, not just the HTTP enqueue response.
+    const deadline=Date.now()+4000;
+    while(Date.now()<deadline) {
+      await new Promise(resolve=>setTimeout(resolve,150));
+      const state=await (await fetch("/api/status")).json();
+      if(state.display_error) throw new Error(state.display_error);
+      if(state.display && state.display[setting]===value) { lcd=state.display; return; }
+    }
+    throw new Error("The meter did not acknowledge the LCD setting");
+  } catch(error) { $("display-error").textContent=error.message; }
+  finally { displayBusy=false; paintLcd(true); }
+}
+$("dim").addEventListener("click",()=>void setLcd("brightness",Math.max(10,lcd.brightness-10)));
+$("brighten").addEventListener("click",()=>void setLcd("brightness",Math.min(100,lcd.brightness+10)));
+$("rotate-left").addEventListener("click",()=>void setLcd("rotation",(lcd.rotation+3)%4));
+$("rotate-right").addEventListener("click",()=>void setLcd("rotation",(lcd.rotation+1)%4));
 $("enable").addEventListener("click",()=>{armed=true;paint();});
 $("release").addEventListener("click",releaseAll);
 $("preview-enabled").addEventListener("change",async()=>{
@@ -71,6 +106,8 @@ async function status() {
     const response=await fetch("/api/status"); const state=await response.json();
     $("connection").textContent=state.connected ? (state.running ? "Meter connected · game running" : "Meter connected · waiting for game") : "Waiting for USB connection…";
     $("dot").classList.toggle("connected",state.connected);
+    lcd=state.display || null; paintLcd(state.connected);
+    if(!displayBusy) $("display-error").textContent=state.display_error || "";
     $("performance").textContent=state.render_fps ? `${state.render_fps.toFixed(1)} game fps · ${state.frames} frames` : "—";
     $("error").textContent=state.error || "";
     if(state.screen && state.screen.snapshot !== screenSnapshot) {
@@ -82,7 +119,7 @@ async function status() {
     }
     $("screen-error").textContent=state.screen_error || "";
     if(state.preview_enabled===false) $("screen-info").textContent="Preview paused";
-  } catch { $("connection").textContent="Controller offline"; $("dot").classList.remove("connected"); releaseAll(); }
+  } catch { $("connection").textContent="Controller offline"; $("dot").classList.remove("connected"); paintLcd(false); releaseAll(); }
 }
 fetch("/api/session").then(response=>response.json()).then(session=>{token=session.token;queue();void status();}).catch(error=>{$("error").textContent=error.message;});
 setInterval(()=>{if(!stopped) queue();},100);

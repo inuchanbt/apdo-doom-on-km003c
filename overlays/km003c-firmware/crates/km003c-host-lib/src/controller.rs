@@ -1,6 +1,7 @@
 //! Leased game input; no flash or loader operation is available on this path.
 use crate::{DeviceSelector, rpc::Client};
 use anyhow::{Context, Result, ensure};
+use km003c_interface::{ControlDisplay, display_control::DisplayRequest};
 use km003c_interface::{GameInput, GameInputReply, GameInputRequest, GameInputState};
 use std::{
     collections::VecDeque,
@@ -90,6 +91,8 @@ pub async fn control_stdin(selector: DeviceSelector, preview: bool) -> Result<()
     let reader_state = state.clone();
     let preview_enabled = Arc::new(AtomicBool::new(preview));
     let reader_preview = preview_enabled.clone();
+    let display_queue = Arc::new(Mutex::new(VecDeque::from([DisplayRequest::Status])));
+    let reader_display = display_queue.clone();
     std::thread::spawn(move || {
         for line in std::io::stdin().lock().lines() {
             let Ok(line) = line else {
@@ -97,6 +100,22 @@ pub async fn control_stdin(selector: DeviceSelector, preview: bool) -> Result<()
             };
             if line.trim() == "preview 0" || line.trim() == "preview 1" {
                 reader_preview.store(line.trim() == "preview 1", Ordering::Relaxed);
+                continue;
+            }
+            let command = line.trim().split_once(' ').and_then(|(kind, value)| {
+                let value = value.parse::<u8>().ok()?;
+                let request = match kind {
+                    "brightness" => DisplayRequest::Brightness(value),
+                    "rotation" => DisplayRequest::Rotation(value),
+                    _ => return None,
+                };
+                request.valid().then_some(request)
+            });
+            if let Some(request) = command {
+                let mut queue = reader_display.lock().unwrap();
+                if queue.len() < 8 {
+                    queue.push_back(request);
+                }
                 continue;
             }
             let Ok(buttons) = line.trim().parse::<u8>() else {
@@ -123,6 +142,21 @@ pub async fn control_stdin(selector: DeviceSelector, preview: bool) -> Result<()
                 _ = &mut interrupt => break,
             };
             println!("{}", serde_json::to_string(&reply)?);
+            let display_request = display_queue.lock().unwrap().pop_front();
+            if let Some(request) = display_request {
+                match tokio::time::timeout(
+                    Duration::from_secs(2),
+                    client.rpc.send_resp::<ControlDisplay>(&request),
+                )
+                .await
+                {
+                    Ok(Ok(reply)) => println!("{}", serde_json::json!({"display":reply})),
+                    _ => println!(
+                        "{}",
+                        serde_json::json!({"display_error":"LCD settings unavailable; install the display-control firmware"})
+                    ),
+                }
+            }
             if ended {
                 break;
             }

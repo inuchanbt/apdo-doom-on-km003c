@@ -13,10 +13,21 @@
     <section class="status" aria-live="polite"><span id="dot"></span><strong id="connection">Connecting to meter…</strong><span id="performance">—</span></section>
     <div class="toolbar"><button id="enable" class="primary">Enable keyboard</button><button id="release">Release all</button><span id="focus">Click Enable keyboard to play</span></div>
     <section class="preview" aria-label="KM003C screen preview">
+      <div class="lcd-controls" aria-label="Physical LCD settings">
+        <strong>Meter LCD</strong>
+        <button id="dim" disabled aria-label="Decrease meter brightness">☀ −</button>
+        <output id="brightness">—</output>
+        <button id="brighten" disabled aria-label="Increase meter brightness">☀ +</button>
+        <button id="rotate-left" disabled>↶ Rotate left</button>
+        <button id="rotate-right" disabled>↷ Rotate right</button>
+        <output id="rotation">—</output>
+      </div>
+      <p class="lcd-hint">Changes the physical screen; the device image turns with it. Resets on power-up.</p>
+      <p id="display-error" role="status"></p>
       <div class="preview-heading"><strong>KM003C screen</strong><label><input id="preview-enabled" type="checkbox" checked> Live preview</label><span id="screen-info">Waiting for capture…</span><a id="save-frame" href="/api/frame.bmp" download="km003c-frame.bmp" hidden>Save frame</a></div>
       <div class="screen-area">
         <div class="device-mockup">
-          <img class="device-shell" src="/assets/km003c-shell.webp" alt="KM003C enclosure, rotated left 90 degrees with the Type-C connector on the left" draggable="false">
+          <img class="device-shell" src="/assets/km003c-shell.webp" alt="KM003C enclosure following the meter LCD rotation" draggable="false">
           <div class="device-display">
             <img id="screen" alt="Live capture of the KM003C game display" hidden>
             <p id="screen-placeholder">Waiting for the meter's first frame…</p>

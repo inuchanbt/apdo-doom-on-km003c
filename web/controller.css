@@ -1,8 +1,10 @@
 :root{color-scheme:dark;font-family:Segoe UI,system-ui,sans-serif;background:#111716;color:#e7eee9}
+.lcd-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;font-size:13px}.lcd-controls button{padding:9px 12px}.lcd-controls output{min-width:40px;text-align:center}.lcd-hint{font-size:12px;margin:0 0 18px}#display-error{color:#f1a58f;font-size:12px}button:disabled{opacity:.4;cursor:default}
 .preview{border:1px solid #344239;border-radius:18px;background:#19221d;margin-bottom:20px;padding:18px}.preview-heading{display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:13px}.preview-heading span{color:#a4b2aa;margin-left:auto}.preview-heading a{color:#b7db69}.screen-area{background:#070b08;border-radius:10px;min-height:220px;display:flex;align-items:center;justify-content:center;margin-top:16px;padding:12px}#screen{width:min(100%,480px);height:auto;aspect-ratio:4/3;image-rendering:pixelated}#screen[hidden],#save-frame[hidden]{display:none}#screen-placeholder{font-size:13px}#screen-error{font-size:12px;color:#d8a594;margin:8px 0 0}
 .toolbar{margin-bottom:16px}#screen-placeholder[hidden]{display:none}
 .screen-area{padding:8px;background:#0c110e;overflow:hidden}
-.device-mockup{position:relative;width:min(100%,680px);aspect-ratio:1;flex:none;isolation:isolate}
+.device-mockup{position:relative;width:min(100%,680px);aspect-ratio:1;flex:none;isolation:isolate;transform:rotate(var(--lcd-turn,0deg));transition:transform .3s ease}
+@media(prefers-reduced-motion:reduce){.device-mockup{transition:none}}
 .device-shell{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform:rotate(-90deg);pointer-events:none;user-select:none;z-index:0}
 .device-display{position:absolute;left:22%;top:17.8%;width:66%;height:66%;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;z-index:1;border-radius:.6%}
 .device-display #screen{width:calc(100% - 20px);height:100%;aspect-ratio:auto;object-fit:contain;image-rendering:pixelated;transform:translateX(-4px)}

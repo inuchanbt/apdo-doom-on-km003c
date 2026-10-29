@@ -47,6 +47,8 @@ class Bridge:
         self.history = deque(maxlen=32)
         self.error = ""
         self.screen_error = ""
+        self.display_info = None
+        self.display_error = ""
         self.screen_info = None
         self.screen_bmp = None
         self.screen_received = 0.0
@@ -91,6 +93,14 @@ class Bridge:
                 reply = json.loads(line)
                 if not isinstance(reply, dict):
                     continue
+                if "display" in reply or "display_error" in reply:
+                    with self.lock:
+                        if "display" in reply:
+                            self.display_info = reply["display"]
+                            self.display_error = "" if reply["display"]["accepted"] else "The meter could not apply that setting."
+                        else:
+                            self.display_error = str(reply["display_error"])
+                    continue
                 if "screen" in reply:
                     frame = reply["screen"]
                     bitmap = frame_bmp(frame)
@@ -132,6 +142,7 @@ class Bridge:
                         time.monotonic() - self.received < 2, error=self.error,
                         recent_inputs=list(self.history), screen=self.screen_info,
                         screen_error=self.screen_error, preview_enabled=self.preview_enabled,
+                        display=self.display_info, display_error=self.display_error,
                         render_fps=self.render_fps)
 
     def frame(self):
@@ -142,6 +153,10 @@ class Bridge:
         with self.lock:
             self.preview_enabled = enabled
             return self.write_locked(f"preview {int(enabled)}")
+
+    def set_display(self, setting, value):
+        with self.lock:
+            return self.write_locked(f"{setting} {value}")
 
     def close(self):
         self.stopped.set()
@@ -224,6 +239,14 @@ def handler_for(bridge):
                         raise ValueError()
                     ok = bridge.set_preview(data["enabled"])
                     return self.respond(200 if ok else 409, {"ok": ok})
+                if self.path == "/api/display":
+                    setting, value = data.get("setting"), data.get("value")
+                    if (type(value) is not int or
+                            not ((setting == "brightness" and 10 <= value <= 100) or
+                                 (setting == "rotation" and 0 <= value <= 3))):
+                        raise ValueError()
+                    ok = bridge.set_display(setting, value)
+                    return self.respond(200 if ok else 409, {"ok": ok})
                 if self.path == "/api/stop":
                     bridge.update(0)
                     self.respond(200, {"ok": True})
@@ -231,7 +254,7 @@ def handler_for(bridge):
                     return
                 self.respond(404, {"error": "Not found"})
             except (ValueError, TypeError, TimeoutError):
-                self.respond(400, {"error": "Expected a key mask from 0 to 255"})
+                self.respond(400, {"error": "Invalid controller request"})
     return Handler
 
 

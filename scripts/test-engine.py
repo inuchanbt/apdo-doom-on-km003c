@@ -21,7 +21,14 @@ for i in range(140):
         hashes.append({'frame':i,'sha256':hashlib.sha256(frame).hexdigest()})
         (root/f'artifacts/host-engine/frame-{i:03}.rgb565').write_bytes(frame)
 assert len({h['sha256'] for h in hashes})>=4,'frames do not change'
+# A rotated LCD starts blank. Even unchanged HUD pixels must be sent again.
+# Compare complete redraws, avoiding incremental-patch edge differences.
+dll.km_host_redraw()
+hud_before=C.string_at(dll.km_host_screen(),320*240*2)[200*320*2:]
+dll.km_host_clear_and_redraw()
+hud_after=C.string_at(dll.km_host_screen(),320*240*2)[200*320*2:]
+assert hud_after==hud_before,'rotation redraw lost unchanged HUD pixels'
 for key in [32,0,128,0,64,0]:
     assert dll.km_host_step(key)==0,dll.km_host_error()
 (root/'artifacts/host-engine/verified.json').write_text(json.dumps(hashes,indent=2)+'\n')
-print('PASS: 140 game frames, movement, turning, firing and menu input; changing RGB565 output')
+print('PASS: 140 game frames, movement, turning, firing, menu input and complete HUD redraw')

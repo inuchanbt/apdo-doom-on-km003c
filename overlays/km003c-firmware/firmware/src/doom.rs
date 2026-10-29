@@ -11,7 +11,10 @@ use embedded_graphics::{
     primitives::Rectangle,
     text::Text,
 };
+use km003c_interface::display_control::{DisplayReply, DisplayRequest};
 use km003c_interface::{GameCommand, GameInputReply, GameInputRequest, GameReply, RemoteGameInput};
+static DISPLAY_REQUEST: Channel<CriticalSectionRawMutex, DisplayRequest, 1> = Channel::new();
+static DISPLAY_REPLY: Signal<CriticalSectionRawMutex, DisplayReply> = Signal::new();
 static COMMANDS: Channel<CriticalSectionRawMutex, GameCommand, 1> = Channel::new();
 static REPLY: Signal<CriticalSectionRawMutex, GameReply> = Signal::new();
 static INPUTS: Channel<CriticalSectionRawMutex, GameInputRequest, 1> = Channel::new();
@@ -22,6 +25,11 @@ unsafe extern "C" {
     fn km_doom_init();
     fn km_doom_step();
     fn km_doom_menu() -> i32;
+    fn km_doom_redraw();
+}
+pub async fn display_control(request: DisplayRequest) -> DisplayReply {
+    DISPLAY_REQUEST.send(request).await;
+    DISPLAY_REPLY.wait().await
 }
 pub async fn request(command: GameCommand) -> GameReply {
     COMMANDS.send(command).await;
@@ -152,7 +160,43 @@ pub async fn task(aw: crate::aw9523::Aw9523) {
     let mut elapsed_ms = 0u32;
     let mut exit_since = None;
     let mut remote = RemoteGameInput::default();
+    let mut brightness = 100u8;
+    let mut rotation = 0u8;
     loop {
+        if let Ok(request) = DISPLAY_REQUEST.try_receive() {
+            let mut accepted = request.valid();
+            if accepted {
+                match request {
+                    DisplayRequest::Brightness(percent) => {
+                        // Never exceed the original, verified LED drive level.
+                        accepted = aw
+                            .backlight((u16::from(percent) * 70 / 100) as u8)
+                            .await
+                            .is_ok();
+                        if accepted {
+                            brightness = percent;
+                        }
+                    }
+                    DisplayRequest::Rotation(turns) if turns != rotation => {
+                        rotation = turns;
+                        display.set_rotation(turns);
+                        display.clear(Rgb565::BLACK).unwrap();
+                        if initialized {
+                            // Repaint the whole HUD, including unchanged digits.
+                            unsafe {
+                                km_doom_redraw();
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            DISPLAY_REPLY.signal(DisplayReply {
+                accepted,
+                brightness,
+                rotation,
+            });
+        }
         let mut mask = 0u32;
         for (i, b) in buttons.iter().enumerate() {
             if b.is_low() {
