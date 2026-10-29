@@ -22,7 +22,13 @@
         <button id="rotate-right" disabled>↷ Rotate right</button>
         <output id="rotation">—</output>
       </div>
-      <p class="lcd-hint">Changes the physical screen; the device image turns with it. Resets on power-up.</p>
+      <label class="rotation-mode">Preview rotation
+        <select id="rotation-mode">
+          <option value="device">Device only · game stays upright</option>
+          <option value="whole">Device + game · joke mode</option>
+        </select>
+      </label>
+      <p class="lcd-hint">Buttons change the physical screen. Preview mode changes only the PC view. LCD settings reset on power-up.</p>
       <p id="display-error" role="status"></p>
       <div class="preview-heading"><strong>KM003C screen</strong><label><input id="preview-enabled" type="checkbox" checked> Live preview</label><span id="screen-info">Waiting for capture…</span><a id="save-frame" href="/api/frame.bmp" download="km003c-frame.bmp" hidden>Save frame</a></div>
       <div class="screen-area">

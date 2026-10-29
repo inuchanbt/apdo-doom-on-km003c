@@ -44,4 +44,4 @@ The user confirmed that the device's game image updates on the PC and that keybo
 
 The HTTP API serves the latest completed BMP at `/api/frame.bmp`. It exposes the bounded game image, not workspace files or recovery backups. Python uses only its standard library to construct the BMP; Pillow is not required for playing or saving images.
 
-With v7, the device illustration and live inset rotate together when the physical LCD rotation is acknowledged. The source BMP stays upright, so downloaded frames retain their original orientation. The calibrated inset width (20 px narrower) and horizontal offset (4 px left) stay fixed in the device coordinate system.
+With v7, the device illustration follows the acknowledged physical LCD rotation. **Device only** counter-rotates the live inset to keep gameplay upright (default). **Device + game** turns the inset with the enclosure as a joke mode. This selector affects only the PC preview. The source BMP stays upright, so downloaded frames retain their original orientation. The calibrated inset width (20 px narrower) and horizontal offset (4 px left) stay fixed in the device coordinate system.

@@ -7,6 +7,7 @@ let pending = [];
 let screenSnapshot = 0;
 let lcd = null, displayBusy = false;
 let mockupTurns = 0, lastLcdRotation = 0;
+let rotationMode = "device";
 const $ = id => document.getElementById(id);
 function mask() { let value = 0; for (const bit of pressed.values()) value |= bit; return value; }
 function paint() {
@@ -32,11 +33,20 @@ async function sendPending() {
 }
 function queue() { const value=mask(); if (pending.at(-1)!==value) pending.push(value); paint(); void sendPending(); }
 function releaseAll() { pressed.clear(); armed=false; pending=[]; queue(); }
+function paintMockup() {
+  const mockup=document.querySelector(".device-mockup");
+  mockup.style.setProperty("--lcd-turn",`${mockupTurns*90}deg`);
+  mockup.style.setProperty("--video-turn",`${rotationMode==="device" ? -mockupTurns*90 : 0}deg`);
+}
+$("rotation-mode").addEventListener("change",()=>{
+  rotationMode=$("rotation-mode").value;
+  releaseAll(); paintMockup();
+});
 function paintLcd(connected) {
   if(lcd) {
     mockupTurns += (lcd.rotation-lastLcdRotation+6)%4-2;
     lastLcdRotation=lcd.rotation;
-    document.querySelector(".device-mockup").style.setProperty("--lcd-turn",`${mockupTurns*90}deg`);
+    paintMockup();
   }
   $("brightness").textContent=lcd ? `${lcd.brightness}%` : "—";
   $("rotation").textContent=lcd ? `${lcd.rotation*90}°` : "—";
