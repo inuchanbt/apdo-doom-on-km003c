@@ -35,8 +35,10 @@ function queue() { const value=mask(); if (pending.at(-1)!==value) pending.push(
 function releaseAll() { pressed.clear(); armed=false; pending=[]; queue(); }
 function paintMockup() {
   const mockup=document.querySelector(".device-mockup");
-  mockup.style.setProperty("--lcd-turn",`${mockupTurns*90}deg`);
-  mockup.style.setProperty("--video-turn",`${rotationMode==="device" ? -mockupTurns*90 : 0}deg`);
+  // The LCD rotates inside the meter. To show an upright game, the enclosure
+  // must turn the opposite way around the fixed, calibrated screen center.
+  mockup.style.setProperty("--body-turn",`${-mockupTurns*90}deg`);
+  mockup.style.setProperty("--video-turn",`${rotationMode==="whole" ? -mockupTurns*90 : 0}deg`);
 }
 $("rotation-mode").addEventListener("change",()=>{
   rotationMode=$("rotation-mode").value;

@@ -58,7 +58,7 @@ With the PC-control firmware (v5) and updated host installed:
 
 Click **Enable keyboard** in the local panel. Use **WASD / arrows**, **Space / Ctrl** to fire, **E** to use, **Esc** for the menu, and **Enter** to confirm. Switching away releases keys; enable them again when returning. The meter still renders the game. See [PC controls](docs/PC-CONTROLS.md) for setup, input expiry, and scripted control.
 
-With v7, **Meter LCD** buttons adjust the physical backlight and rotate the screen left/right in 90° steps. The preview offers **Device only** (game stays upright, default) and **Device + game** (joke mode). Settings reset on power-up.
+With v7, **Meter LCD** buttons adjust the physical backlight and rotate the screen left/right in 90° steps. The preview offers **Device only** (game stays upright at a fixed position, default) and **Device + game** (joke mode). Settings reset on power-up.
 
 With v6, the same panel displays a live **120×90 RGB565 screen capture**. **Save frame** downloads a BMP. See [screen capture](docs/SCREEN-CAPTURE.md) for the resolution, memory use, and preview-rate limitations.
 
