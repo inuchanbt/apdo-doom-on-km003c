@@ -3,9 +3,12 @@
 import http.client
 import importlib.util
 import json
+import queue
 import struct
+import subprocess
 from pathlib import Path
 import threading
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -119,6 +122,114 @@ class FrameEncodingTests(unittest.TestCase):
                       {"width": 1, "height": 1, "rgb565": "zzzz"}):
             with self.subTest(frame=frame), self.assertRaises(ValueError):
                 controller.frame_bmp(frame)
+
+
+class FakePipe:
+    def __init__(self):
+        self.lines = queue.Queue()
+    def __iter__(self):
+        while True:
+            line = self.lines.get()
+            if line is None:
+                return
+            yield line
+    def close(self):
+        pass
+
+
+class FakeUsbProcess:
+    def __init__(self, alive=True):
+        self.stdout, self.stderr = FakePipe(), FakePipe()
+        self.commands = []
+        self.exited = threading.Event()
+        self.returncode = None
+        self.stdin = self
+        self.frames = 0
+        if not alive:
+            self.finish()
+    def write(self, line):
+        if self.poll() is not None:
+            raise BrokenPipeError()
+        self.commands.append(line.strip())
+        if line.strip().isdigit():
+            self.frames += 1
+            self.emit({"frames": self.frames, "running": True, "applied_buttons": int(line)})
+    def flush(self):
+        pass
+    def close(self):
+        self.finish()
+    def emit(self, reply):
+        self.stdout.lines.put(json.dumps(reply) + "\n")
+    def finish(self):
+        if not self.exited.is_set():
+            self.returncode = 1
+            self.exited.set()
+            self.stdout.lines.put(None)
+            self.stderr.lines.put(None)
+    def poll(self):
+        return self.returncode
+    def wait(self, timeout):
+        if not self.exited.wait(timeout):
+            raise subprocess.TimeoutExpired("fake USB", timeout)
+        return self.returncode
+    terminate = finish
+    kill = finish
+
+
+class UsbReconnectTests(unittest.TestCase):
+    def wait_for(self, predicate):
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            if predicate():
+                return
+            time.sleep(0.005)
+        self.fail("USB bridge state did not converge")
+
+    def test_late_connect_replug_drops_keys_and_accepts_restarted_frame_counter(self):
+        missing, first, second = FakeUsbProcess(False), FakeUsbProcess(), FakeUsbProcess()
+        processes = iter([missing, first, second])
+        bridge = controller.Bridge("fake", process_factory=lambda *a, **k: next(processes), retry_seconds=0.01)
+        try:
+            self.assertFalse(bridge.update(2))
+            self.wait_for(lambda: bridge.snapshot()["connected"])
+            self.assertEqual(bridge.snapshot()["connection_id"], 2)
+            self.assertEqual(first.commands[:2], ["0", "preview 1"])
+            self.assertTrue(bridge.update(2))
+            first.emit({"screen": {"snapshot": 1, "width": 1, "height": 1, "rgb565": "00f8"}})
+            self.wait_for(lambda: bridge.snapshot()["screen"] is not None)
+            frame_id = bridge.snapshot()["screen"]["frame_id"]
+            bridge.set_preview(False)
+            first.finish()
+            self.wait_for(lambda: bridge.snapshot()["connection_id"] == 3 and bridge.snapshot()["connected"])
+            self.assertEqual(second.commands[:2], ["0", "preview 0"])
+            self.assertTrue(all(command == "0" for command in second.commands if command.isdigit()))
+            self.assertIsNone(bridge.snapshot()["screen"])
+            self.assertIsNone(bridge.snapshot()["display"])
+            bridge.accept_reply(first, {"frames": 99999, "running": False})
+            self.assertTrue(bridge.snapshot()["running"])
+            second.emit({"screen": {"snapshot": 1, "width": 1, "height": 1, "rgb565": "e007"}})
+            self.wait_for(lambda: bridge.snapshot()["screen"] is not None)
+            self.assertGreater(bridge.snapshot()["screen"]["frame_id"], frame_id)
+        finally:
+            bridge.close()
+        self.assertFalse(bridge.worker.is_alive())
+        self.assertIsNotNone(second.poll())
+
+    def test_helper_launch_error_keeps_server_usable_and_stop_cancels_retry(self):
+        failed = threading.Event()
+        def unavailable(*args, **kwargs):
+            failed.set()
+            raise FileNotFoundError("test helper missing")
+        bridge = controller.Bridge("missing", process_factory=unavailable, retry_seconds=1)
+        try:
+            self.assertTrue(failed.wait(1))
+            self.assertFalse(bridge.snapshot()["connected"])
+            self.assertTrue(bridge.update(0))
+            self.assertFalse(bridge.update(1))
+            self.assertTrue(bridge.set_preview(False))
+        finally:
+            bridge.close()
+        self.assertFalse(bridge.worker.is_alive())
 
 
 if __name__ == "__main__":

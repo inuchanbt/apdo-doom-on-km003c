@@ -8,9 +8,9 @@
 
 **Yes, the POWER-Z KM003C USB-C power meter runs DOOM.** More precisely, it runs the low-memory DOOM engine with Freedoom's E1M1 data on its own MCU. The PC builds, flashes, and verifies it; gameplay runs on the meter.
 
-![Freedoom E1M1 rendered by the host test harness](docs/images/doom-host-preview.png)
+![Web controller with a live capture from the KM003C](docs/images/km003c-web-controller.jpg)
 
-*Host test render at 320×240, not a photograph of the device. The meter displays a scaled 240×180 image.*
+*Web control panel with a live 120×90 capture from the actual meter, composited into the supplied KM003C image. The meter renders the game; the browser controls and previews it.*
 
 ## What works
 
@@ -55,6 +55,8 @@ With the PC-control firmware (v5) and updated host installed:
 ```powershell
 .\scripts\play.ps1
 ```
+
+You can start the server before connecting the meter: it retries USB automatically, including after unplug/replug. Reconnection clears held keys; click **Enable keyboard** again to resume. Open the printed HTTP URL in any normal browser, rather than opening `web/controller.html` directly.
 
 Click **Enable keyboard** in the local panel. Use **WASD / arrows**, **Space / Ctrl** to fire, **E** to use, **Esc** for the menu, and **Enter** to confirm. Switching away releases keys; enable them again when returning. The meter still renders the game. See [PC controls](docs/PC-CONTROLS.md) for setup, input expiry, and scripted control.
 

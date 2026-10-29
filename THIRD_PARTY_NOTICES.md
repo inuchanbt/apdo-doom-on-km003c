@@ -6,7 +6,7 @@ The low-memory DOOM engine and converter are based on Artur Bieniek's [DMC100-Do
 
 The board firmware and host transport are based on [okhsunrog/km003c-firmware](https://github.com/okhsunrog/km003c-firmware) and its pinned km003c-lib dependency. The pinned board repository has no top-level license file. Patches do not grant an additional license for that upstream source. Consult its individual file notices and dependency licenses before redistributing bundled sources or firmware binaries. The repository publishes source additions and patches, not a copy of the upstream firmware or proprietary recovery images.
 
-Game assets are [Freedoom 0.13.0](https://freedoom.github.io/), distributed under its modified BSD license. The README's host-rendered preview and the device-capture image in docs use those assets. The release's COPYING and credits are retained in notices/freedoom-0.13.0/. Keep those notices with redistributed game assets. No commercial DOOM IWAD is included.
+Game assets are [Freedoom 0.13.0](https://freedoom.github.io/), distributed under its modified BSD license. The README's Web-controller screenshot, the host-rendered preview, and the device-capture image in docs use those assets. The release's COPYING and credits are retained in notices/freedoom-0.13.0/. Keep those notices with redistributed game assets. No commercial DOOM IWAD is included.
 
 Hardware backups, device identifiers, calibration data, compiled firmware, and converted game packs are excluded from version control. Source reconstruction fetches the pinned upstream repositories; their notices remain in those checkouts.
 

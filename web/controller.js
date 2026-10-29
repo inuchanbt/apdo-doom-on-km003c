@@ -5,6 +5,7 @@ const pressed = new Map();
 let token = "", armed = false, stopped = false, sending = false;
 let pending = [];
 let screenSnapshot = 0;
+let connectionId = null, usbConnected = false;
 let lcd = null, displayBusy = false;
 let mockupTurns = 0, lastLcdRotation = 0;
 let rotationMode = "device";
@@ -26,7 +27,7 @@ async function sendPending() {
     while (pending.length && !stopped) {
       const value = pending.shift();
       const response = await fetch("/api/keys",{method:"POST",headers:{"Content-Type":"application/json","X-APDO-Token":token},body:JSON.stringify({buttons:value}),keepalive:true});
-      if (!response.ok) throw new Error("Controller disconnected. Release controls and restart the controller.");
+      if (!response.ok) throw new Error("Waiting for USB reconnection. Enable keyboard again once connected.");
     }
   } catch (error) { pending=[]; pressed.clear(); armed=false; paint(); if(!stopped) $("error").textContent=error.message; }
   finally { sending = false; }
@@ -77,7 +78,8 @@ $("dim").addEventListener("click",()=>void setLcd("brightness",Math.max(10,lcd.b
 $("brighten").addEventListener("click",()=>void setLcd("brightness",Math.min(100,lcd.brightness+10)));
 $("rotate-left").addEventListener("click",()=>void setLcd("rotation",(lcd.rotation+3)%4));
 $("rotate-right").addEventListener("click",()=>void setLcd("rotation",(lcd.rotation+1)%4));
-$("enable").addEventListener("click",()=>{armed=true;paint();});
+$("enable").disabled=true;
+$("enable").addEventListener("click",()=>{if(usbConnected) {armed=true;paint();}});
 $("release").addEventListener("click",releaseAll);
 $("preview-enabled").addEventListener("change",async()=>{
   try {
@@ -100,6 +102,7 @@ window.addEventListener("pagehide",releaseAll);
 document.addEventListener("visibilitychange",()=>{if(document.hidden) releaseAll();});
 document.querySelectorAll("[data-mask]").forEach(button=>{
   button.addEventListener("pointerdown",event=>{
+    if(!usbConnected) return;
     event.preventDefault(); armed=true; button.setPointerCapture(event.pointerId);
     pressed.set("pointer"+event.pointerId,Number(button.dataset.mask)); queue();
   });
@@ -116,22 +119,34 @@ async function status() {
   if (stopped) return;
   try {
     const response=await fetch("/api/status"); const state=await response.json();
-    $("connection").textContent=state.connected ? (state.running ? "Meter connected · game running" : "Meter connected · waiting for game") : "Waiting for USB connection…";
+    if(connectionId!==state.connection_id || !state.connected) {
+      if(armed || pressed.size || pending.some(value=>value!==0)) releaseAll();
+      if(connectionId!==state.connection_id) screenSnapshot=0;
+      connectionId=state.connection_id;
+    }
+    usbConnected=!!state.connected;
+    $("enable").disabled=!usbConnected;
+    document.querySelectorAll("[data-mask]").forEach(button=>{button.disabled=!usbConnected;});
+    $("connection").textContent=state.connected ? (state.running ? "Meter connected · game running" : "Meter connected · waiting for game") : "Waiting for KM003C · reconnecting automatically…";
     $("dot").classList.toggle("connected",state.connected);
     lcd=state.display || null; paintLcd(state.connected);
     if(!displayBusy) $("display-error").textContent=state.display_error || "";
     $("performance").textContent=state.render_fps ? `${state.render_fps.toFixed(1)} game fps · ${state.frames} frames` : "—";
     $("error").textContent=state.error || "";
-    if(state.screen && state.screen.snapshot !== screenSnapshot) {
-      screenSnapshot=state.screen.snapshot;
+    if(state.screen && (state.screen.frame_id ?? state.screen.snapshot) !== screenSnapshot) {
+      screenSnapshot=state.screen.frame_id ?? state.screen.snapshot;
       $("screen").src=`/api/frame.bmp?snapshot=${screenSnapshot}`;
       $("screen").hidden=false; $("screen-placeholder").hidden=true; $("save-frame").hidden=false;
       const fps=state.screen.preview_fps ? `${state.screen.preview_fps.toFixed(1)} fps` : "captured";
       $("screen-info").textContent=`${state.screen.width}×${state.screen.height} · ${fps} · frame ${state.screen.game_frame}`;
     }
+    if(!state.screen) {
+      $("screen").hidden=true; $("screen-placeholder").hidden=false; $("save-frame").hidden=true;
+      $("screen-info").textContent="Waiting for capture…";
+    }
     $("screen-error").textContent=state.screen_error || "";
     if(state.preview_enabled===false) $("screen-info").textContent="Preview paused";
-  } catch { $("connection").textContent="Controller offline"; $("dot").classList.remove("connected"); paintLcd(false); releaseAll(); }
+  } catch { usbConnected=false; $("enable").disabled=true; $("connection").textContent="Controller offline"; $("dot").classList.remove("connected"); paintLcd(false); releaseAll(); }
 }
 fetch("/api/session").then(response=>response.json()).then(session=>{token=session.token;queue();void status();}).catch(error=>{$("error").textContent=error.message;});
 setInterval(()=>{if(!stopped) queue();},100);

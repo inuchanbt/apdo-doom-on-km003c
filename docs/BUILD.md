@@ -103,4 +103,4 @@ python scripts/build-engine.py --host-test
 python scripts/test-engine.py
 ```
 
-The optional `scripts/render-frame.py` converts a test frame to PNG and requires Pillow. The saved README preview comes from this host harness, not a camera image of the meter.
+The optional `scripts/render-frame.py` converts a test frame to PNG and requires Pillow. The saved `docs/images/doom-host-preview.png` comes from this host harness. The README now shows the Web controller with a live device capture composited into the supplied enclosure image.

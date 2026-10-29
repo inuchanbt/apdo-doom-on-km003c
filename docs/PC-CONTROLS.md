@@ -25,6 +25,10 @@ The helper opens a local browser page. Click **Enable keyboard**, then play whil
 
 Use **Release all** to clear inputs. Switching tabs, minimizing, or clicking outside the page releases inputs and disables keyboard capture. Click **Enable keyboard** again when returning. Only mapped game keys are captured while enabled; there is no global keyboard hook.
 
+The server can start before the meter is connected. It automatically restarts the USB helper after connection failures, unplug/replug, or a stalled helper. The HTTP server and URL stay available throughout. Allow several seconds for USB enumeration and game auto-start; no page reload is needed. A disconnect clears keys, old display settings, and captured frames. Click **Enable keyboard** again after reconnection. The Live preview preference is retained.
+
+**Stop controller** ends the server and its retry loop. To resume after stopping it, run `play.ps1` again and open the newly printed URL. Use **Release all** for a temporary input pause. Open the HTTP URL in a browser; opening the HTML file directly does not start the USB bridge.
+
 Run one controller process and one active control tab at a time. Stop it before running another USB CLI command or updating firmware.
 
 ## Physical LCD settings (v7)

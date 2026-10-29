@@ -37,113 +37,183 @@ def frame_bmp(screen):
 
 
 class Bridge:
-    def __init__(self, cli):
+    def __init__(self, cli, *, process_factory=subprocess.Popen, retry_seconds=1):
         self.lock = threading.Lock()
         self.token = secrets.token_urlsafe(32)
+        self.cli = cli
+        self.process_factory = process_factory
+        self.retry_seconds = retry_seconds
+        self.process = None
+        self.connection_id = 0
+        self.frame_sequence = 0
+        self.preview_enabled = True
+        self.error = ""
+        self.history = deque(maxlen=32)
+        self.reset_connection_locked()
+        self.stopped = threading.Event()
+        self.worker = threading.Thread(target=self.supervise, daemon=True)
+        self.worker.start()
+
+    def reset_connection_locked(self):
+        # No input or device state survives a USB connection boundary.
         self.buttons = 0
         self.updated = 0.0
         self.reply = {}
         self.received = 0.0
-        self.history = deque(maxlen=32)
-        self.error = ""
+        self.history.clear()
         self.screen_error = ""
         self.display_info = None
         self.display_error = ""
         self.screen_info = None
         self.screen_bmp = None
         self.screen_received = 0.0
-        self.preview_enabled = True
         self.render_fps = 0.0
         self.rate_frame = None
         self.rate_time = 0.0
-        self.stopped = threading.Event()
-        self.process = subprocess.Popen(
-            [str(cli), "game-control", "--preview"], cwd=ROOT, stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-            encoding="utf-8", errors="replace", bufsize=1,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-        )
-        for target in (self.read_replies, self.read_errors, self.heartbeat):
-            threading.Thread(target=target, daemon=True).start()
 
-    def write_locked(self, buttons):
+    def connected_locked(self):
+        return (self.process is not None and self.process.poll() is None and
+                self.received > 0 and time.monotonic() - self.received < 2)
+
+    def write_locked(self, command):
+        if self.process is None or self.process.poll() is not None:
+            return False
         try:
-            self.process.stdin.write(f"{buttons}\n")
+            self.process.stdin.write(f"{command}\n")
             self.process.stdin.flush()
             return True
         except (BrokenPipeError, OSError, ValueError):
-            self.error = self.error or "USB controller stopped; restart the controller."
             return False
 
     def update(self, buttons):
         with self.lock:
+            if not self.connected_locked():
+                self.buttons, self.updated = 0, 0.0
+                return buttons == 0
             self.buttons, self.updated = buttons, time.monotonic()
-            # Forward transitions immediately, including taps shorter than a heartbeat.
             return self.write_locked(buttons)
 
-    def heartbeat(self):
-        while not self.stopped.wait(0.1):
-            with self.lock:
-                buttons = self.buttons if time.monotonic() - self.updated < 0.5 else 0
-                self.write_locked(buttons)
-
-    def read_replies(self):
-        for line in self.process.stdout:
+    def supervise(self):
+        while not self.stopped.is_set():
             try:
-                reply = json.loads(line)
-                if not isinstance(reply, dict):
-                    continue
-                if "display" in reply or "display_error" in reply:
-                    with self.lock:
-                        if "display" in reply:
-                            self.display_info = reply["display"]
-                            self.display_error = "" if reply["display"]["accepted"] else "The meter could not apply that setting."
-                        else:
-                            self.display_error = str(reply["display_error"])
-                    continue
-                if "screen" in reply:
-                    frame = reply["screen"]
-                    bitmap = frame_bmp(frame)
-                    with self.lock:
-                        now = time.monotonic()
-                        interval = now - self.screen_received if self.screen_received else 0
-                        self.screen_bmp = bitmap
-                        self.screen_info = {key: value for key, value in frame.items() if key != "rgb565"}
-                        self.screen_info["preview_fps"] = 1 / interval if interval else 0
-                        self.screen_received = now
-                        self.screen_error = ""
-                    continue
-                if "screen_error" in reply:
-                    with self.lock:
-                        self.screen_error = str(reply["screen_error"])
-                    continue
-            except ValueError:
+                process = self.process_factory(
+                    [str(self.cli), "game-control", "--preview"], cwd=ROOT,
+                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    text=True, encoding="utf-8", errors="replace", bufsize=1,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+                )
+            except OSError as error:
+                with self.lock:
+                    self.error = f"Could not start USB helper: {error}. Retrying automatically."
+                if self.stopped.wait(self.retry_seconds):
+                    break
                 continue
             with self.lock:
-                now = time.monotonic()
-                frame = reply.get("frames")
-                if type(frame) is int and frame != self.rate_frame:
-                    if self.rate_frame is not None and frame > self.rate_frame:
-                        rate = (frame - self.rate_frame) / max(now - self.rate_time, 0.001)
-                        self.render_fps = rate if not self.render_fps else self.render_fps * 0.6 + rate * 0.4
-                    self.rate_frame, self.rate_time = frame, now
-                self.reply, self.received = reply, now
-                self.history.append(reply)
-
-    def read_errors(self):
-        for line in self.process.stderr:
+                self.reset_connection_locked()
+                self.process = process
+                self.connection_id += 1
+                self.write_locked(0)
+                self.write_locked(f"preview {int(self.preview_enabled)}")
+            readers = [threading.Thread(target=target, args=(process,), daemon=True)
+                       for target in (self.read_replies, self.read_errors)]
+            for reader in readers:
+                reader.start()
+            started = time.monotonic()
+            while not self.stopped.wait(0.1) and process.poll() is None:
+                with self.lock:
+                    now = time.monotonic()
+                    # Also recover a helper that stopped acknowledging USB requests.
+                    if ((self.received and now - self.received > 6) or
+                            (not self.received and now - started > 15)):
+                        self.error = "USB response timed out; reconnecting automatically."
+                        break
+                    buttons = self.buttons if self.connected_locked() and now - self.updated < 0.5 else 0
+                    self.write_locked(buttons)
+            # EOF asks the helper to release keys and close USB before the next open.
             with self.lock:
-                if line.strip():
+                self.write_locked(0)
+                try:
+                    process.stdin.close()
+                except (BrokenPipeError, OSError, ValueError):
+                    pass
+                self.process = None
+                self.reset_connection_locked()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.terminate()
+                try:
+                    process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=3)
+            for reader in readers:
+                reader.join(timeout=1)
+            process.stdout.close()
+            process.stderr.close()
+            if self.stopped.wait(self.retry_seconds):
+                break
+
+    def accept_reply(self, process, reply):
+        with self.lock:
+            # A reader from an old helper must never overwrite the new session.
+            if self.process is not process or not isinstance(reply, dict):
+                return
+            if "display" in reply or "display_error" in reply:
+                if "display" in reply:
+                    self.display_info = reply["display"]
+                    self.display_error = "" if reply["display"]["accepted"] else "The meter could not apply that setting."
+                else:
+                    self.display_error = str(reply["display_error"])
+                return
+            if "screen" in reply:
+                frame = reply["screen"]
+                bitmap = frame_bmp(frame)
+                now = time.monotonic()
+                interval = now - self.screen_received if self.screen_received else 0
+                self.screen_bmp = bitmap
+                self.screen_info = {key: value for key, value in frame.items() if key != "rgb565"}
+                self.screen_info["preview_fps"] = 1 / interval if interval else 0
+                # Device snapshot counters restart on power-up. Browser IDs must not.
+                self.frame_sequence += 1
+                self.screen_info["frame_id"] = self.frame_sequence
+                self.screen_received = now
+                self.screen_error = ""
+                return
+            if "screen_error" in reply:
+                self.screen_error = str(reply["screen_error"])
+                return
+            now = time.monotonic()
+            frame = reply.get("frames")
+            if type(frame) is int and frame != self.rate_frame:
+                if self.rate_frame is not None and frame > self.rate_frame:
+                    rate = (frame - self.rate_frame) / max(now - self.rate_time, 0.001)
+                    self.render_fps = rate if not self.render_fps else self.render_fps * 0.6 + rate * 0.4
+                self.rate_frame, self.rate_time = frame, now
+            self.reply, self.received = reply, now
+            self.error = ""
+            self.history.append(reply)
+
+    def read_replies(self, process):
+        for line in process.stdout:
+            try:
+                self.accept_reply(process, json.loads(line))
+            except (ValueError, KeyError, TypeError):
+                continue
+
+    def read_errors(self, process):
+        for line in process.stderr:
+            with self.lock:
+                if self.process is process and line.strip():
                     self.error = line.strip()
 
     def snapshot(self):
         with self.lock:
-            return dict(self.reply, connected=self.process.poll() is None and
-                        time.monotonic() - self.received < 2, error=self.error,
-                        recent_inputs=list(self.history), screen=self.screen_info,
-                        screen_error=self.screen_error, preview_enabled=self.preview_enabled,
-                        display=self.display_info, display_error=self.display_error,
-                        render_fps=self.render_fps)
+            return dict(self.reply, connected=self.connected_locked(), error=self.error,
+                        connection_id=self.connection_id, recent_inputs=list(self.history),
+                        screen=self.screen_info, screen_error=self.screen_error,
+                        preview_enabled=self.preview_enabled, display=self.display_info,
+                        display_error=self.display_error, render_fps=self.render_fps)
 
     def frame(self):
         with self.lock:
@@ -152,25 +222,16 @@ class Bridge:
     def set_preview(self, enabled):
         with self.lock:
             self.preview_enabled = enabled
-            return self.write_locked(f"preview {int(enabled)}")
+            self.write_locked(f"preview {int(enabled)}")
+            return True  # Retain this preference even while waiting for USB.
 
     def set_display(self, setting, value):
         with self.lock:
-            return self.write_locked(f"{setting} {value}")
+            return self.connected_locked() and self.write_locked(f"{setting} {value}")
 
     def close(self):
         self.stopped.set()
-        with self.lock:
-            self.write_locked(0)
-            try:
-                self.process.stdin.close()
-            except (BrokenPipeError, OSError, ValueError):
-                pass
-        try:
-            self.process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            self.process.terminate()
-            self.process.wait(timeout=5)
+        self.worker.join(timeout=15)
 
 
 def handler_for(bridge):

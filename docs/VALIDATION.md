@@ -39,3 +39,7 @@ The v6 application was read back completely and its loader was unchanged. An act
 ## Physical LCD controls (v7)
 
 The v7 application was fully read back and the native loader was unchanged. The user confirmed physical brightness changes, left/right rotation, and correct display including the HUD. The Rust suite passed 41 tests and the HTTP/BMP suite passed nine, including display value bounds and same-origin enforcement. Rotation uses the board driver's streamed quarter-turn transform; it clears the physical LCD and invalidates the engine's status-bar redraw state. A host engine check clears its simulated LCD and verifies that a redraw restores all status-bar pixels without advancing game time.
+
+## USB late connection and reconnection
+
+The server was started with the HID cable unplugged and continued retrying beyond five failed helper sessions. After the cable was connected, live screen capture and keyboard control resumed; the user confirmed both on the same server. No firmware update was needed. Eleven Python tests pass, including helper failure/restart, clearing held keys across connections, rejecting stale helper output, preserving preview preference, accepting restarted device snapshot counters, and cancelling retries on Stop.
