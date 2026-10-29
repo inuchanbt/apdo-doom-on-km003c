@@ -73,12 +73,30 @@ def prepare_baseline(check=False):
     if not config.get("device_serial") or config["device_serial"] == "YOUR_DEVICE_SERIAL":
         raise RuntimeError("Configure the verified device serial in local/device.json")
     source = ROOT / config["stock_backup"] / "loader-00000004-00003fff.bin"
+    target = ROOT / "vendor/km003c-firmware/fw/bootloader_local_hw2.3.bin"
+    manifest_path = source.parent / "manifest.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest.get("identity", {}).get("serial") != config["device_serial"]:
+            raise RuntimeError("Configured serial differs from the bootstrap stock manifest")
+        verifier = ROOT / "bootstrap/target/release/km003c-backup.exe"
+        if not verifier.is_file():
+            raise RuntimeError("Build the independent verifier first: scripts/build-backup.ps1")
+        result = subprocess.run(
+            [str(verifier), "verify", "--stock", str(source.parent), "--require-dfu"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+        )
+        if result.returncode:
+            raise RuntimeError("Bootstrap recovery verification failed: " + result.stderr.strip())
+    elif not target.exists():
+        raise RuntimeError("First acquire and qualify this device with docs/FIRST-BACKUP.md; no bootstrap manifest found")
+    # Existing experiment workspaces retain their already installed baseline.
+    # A fresh baseline requires the complete bootstrap manifest and DFU evidence.
     data = source.read_bytes()
     metadata = json.loads(Path(str(source) + ".verified.json").read_text())
     expected = Path(str(source) + ".sha256").read_text().split()[0]
     if len(data) != 0x3ffc or metadata.get("matching_reads") != 2 or hashlib.sha256(data).hexdigest() != expected:
         raise RuntimeError("The private loader baseline must have two matching reads and a valid SHA-256")
-    target = ROOT / "vendor/km003c-firmware/fw/bootloader_local_hw2.3.bin"
     if target.exists():
         if target.read_bytes() != data:
             raise RuntimeError("Existing private loader baseline differs; refusing to replace it")

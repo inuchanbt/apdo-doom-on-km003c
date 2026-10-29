@@ -76,7 +76,7 @@ cd apdo-doom-on-km003c
 python scripts/prepare-sources.py --sources-only
 ```
 
-ここまではUSBにアクセスせずソースを再構成するだけです。実機更新用ホストのビルドには、**自分の個体で事前に検証した復旧データ**と、Git対象外の `local/device.json` が必要です。環境構築、Freedoom変換、ビルドは[ビルド手順（英語）](docs/BUILD.md)を参照してください。
+ここまではUSBにアクセスせずソースを再構成するだけです。**初回バックアップ**は `.\scripts\build-backup.ps1` で独立した読み取り専用ツールをビルドします。既存のバックアップや個体のローダーは不要です。[初回取得・検証手順（英語）](docs/FIRST-BACKUP.md)に従い、純正アプリと手動DFUの二重読み取りを検証してから、実機更新用ホストへ引き継ぎます。初回取得の対象はHW2.3・純正2.0.7です。新ツールによる初回手順全体は、未改造の実機ではまだ未検証です。環境構築、Freedoom変換、以後のビルドは[ビルド手順（英語）](docs/BUILD.md)を参照してください。
 
 ```powershell
 .\scripts\build-host.ps1
@@ -103,6 +103,7 @@ python scripts/prepare-sources.py --sources-only
 
 | パス | 内容 |
 | --- | --- |
+| `bootstrap/` | バックアップ不要でビルドできる初回読み取り・オフライン検証ツール |
 | `native/` | Cエンジン接続部分とホスト検証環境 |
 | `overlays/` | 追加したRustソース |
 | `patches/` | 固定版の上流ソースに適用する差分 |

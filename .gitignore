@@ -3,6 +3,7 @@
 /artifacts/
 /vendor/
 /target/
+/bootstrap/target/
 /local/
 *.bin
 *.mencrypt

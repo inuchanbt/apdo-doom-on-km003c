@@ -1,5 +1,5 @@
 diff --git a/crates/km003c-host-cli/src/main.rs b/crates/km003c-host-cli/src/main.rs
-index e855d65..4027d6b 100644
+index e855d65..ec26eef 100644
 --- a/crates/km003c-host-cli/src/main.rs
 +++ b/crates/km003c-host-cli/src/main.rs
 @@ -24,6 +24,50 @@ struct Args {
@@ -46,17 +46,33 @@ index e855d65..4027d6b 100644
 +        size: usize,
 +        output: PathBuf,
 +    },
-+    /// Read recovery regions twice and produce a verified stock restore package.
++    /// Legacy workspace acquisition; first-time backups use the independent bootstrap tool.
 +    StockBackup {
 +        output: PathBuf,
 +    },
      Status,
      /// Current PD owner and last command/session results.
      PdStatus,
-@@ -88,6 +132,55 @@ async fn main() -> Result<()> {
+@@ -61,6 +105,11 @@ enum Command {
+         binary: PathBuf,
+         output: PathBuf,
+     },
++    /// Offline: validate an installed stock backup and create its restore package.
++    PackageInstalled {
++        binary: PathBuf,
++        output: PathBuf,
++    },
+     /// Save the current application from DFU, verifying its committed CRC.
+     Backup {
+         output: PathBuf,
+@@ -87,9 +136,64 @@ async fn main() -> Result<()> {
+     let selector = args
          .serial
          .map_or(DeviceSelector::First, DeviceSelector::SerialNumber);
++    let installed_package = matches!(&args.command, Command::PackageInstalled { .. });
      match args.command {
+-        Command::Package { binary, output } => {
+-            let data = package::package(&std::fs::read(&binary)?)?;
 +        Command::StockInfo => km003c_host_lib::stock::inspect(selector).await?,
 +        Command::RecoveryLoader => {
 +            maintenance::enter(selector).await?;
@@ -106,9 +122,16 @@ index e855d65..4027d6b 100644
 +        Command::StockBackup { output } => {
 +            km003c_host_lib::stock::backup(selector, &output).await?
 +        }
-         Command::Package { binary, output } => {
-             let data = package::package(&std::fs::read(&binary)?)?;
++        Command::Package { binary, output } | Command::PackageInstalled { binary, output } => {
++            let binary = std::fs::read(&binary)?;
++            let data = if installed_package {
++                package::package_installed(&binary)?
++            } else {
++                package::package(&binary)?
++            };
              use std::io::Write;
+             let mut file = std::fs::OpenOptions::new()
+                 .write(true)
 diff --git a/crates/km003c-host-lib/src/lib.rs b/crates/km003c-host-lib/src/lib.rs
 index d5e2736..b0dd8c2 100644
 --- a/crates/km003c-host-lib/src/lib.rs
@@ -209,6 +232,69 @@ index 84e31f2..81295da 100644
  }
  
  pub async fn diagnostics(selector: DeviceSelector, output: &Path) -> Result<()> {
+diff --git a/crates/km003c-host-lib/src/package.rs b/crates/km003c-host-lib/src/package.rs
+index 2ff63df..4b00527 100644
+--- a/crates/km003c-host-lib/src/package.rs
++++ b/crates/km003c-host-lib/src/package.rs
+@@ -4,7 +4,33 @@ use aes::{
+     cipher::{BlockCipherEncrypt, KeyInit},
+ };
+ use anyhow::{Result, ensure};
+-use km003c_lib::{auth::MEMORY_READ_KEY, firmware::FirmwareImage};
++use km003c_lib::{
++    auth::{DeviceInfo, MEMORY_READ_KEY},
++    firmware::{FirmwareImage, InstalledFirmwareInfo},
++};
++
++/// Package an installed backup only after validating its original committed CRC.
++/// This is offline and must reproduce every byte, including committed metadata.
++pub fn package_installed(binary: &[u8]) -> Result<Vec<u8>> {
++    ensure!(binary.len() >= 0x460, "truncated installed application");
++    let mut identity = DeviceInfo::default();
++    identity.parse_firmware_info(&binary[0x420..0x460]);
++    InstalledFirmwareInfo {
++        version: identity.fw_version,
++        date: identity.fw_date,
++        size: u32::from_le_bytes(binary[0x428..0x42c].try_into()?) as usize,
++        crc32: u32::from_le_bytes(binary[0x42c..0x430].try_into()?),
++    }
++    .validate_application(binary)?;
++    let mut raw = binary.to_vec();
++    raw[0x428..0x430].fill(0xff);
++    let output = package(&raw)?;
++    ensure!(
++        FirmwareImage::parse(&output)?.installed_data()? == binary,
++        "restore package does not reproduce installed application"
++    );
++    Ok(output)
++}
+ 
+ pub fn package(binary: &[u8]) -> Result<Vec<u8>> {
+     ensure!(
+@@ -83,4 +109,23 @@ mod tests {
+         assert!(package(&[]).is_err());
+         assert!(package(&vec![0; 0x460]).is_err());
+     }
++    #[test]
++    fn installed_backup_must_have_valid_original_crc() {
++        let original = include_bytes!("../../../hardware/rpc-cleanup/tested-image.bin");
++        let encoded = package_installed(original).unwrap();
++        assert_eq!(
++            FirmwareImage::parse(&encoded)
++                .unwrap()
++                .installed_data()
++                .unwrap(),
++            original
++        );
++        let mut corrupt = original.to_vec();
++        corrupt[0x460] ^= 1;
++        assert!(package_installed(&corrupt).is_err());
++        corrupt = original.to_vec();
++        corrupt[0x428..0x430].fill(0xff);
++        assert!(package_installed(&corrupt).is_err());
++        assert!(package_installed(&[]).is_err());
++    }
+ }
 diff --git a/crates/km003c-interface/src/lib.rs b/crates/km003c-interface/src/lib.rs
 index d2e58f5..8860e4e 100644
 --- a/crates/km003c-interface/src/lib.rs

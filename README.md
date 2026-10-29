@@ -76,7 +76,7 @@ cd apdo-doom-on-km003c
 python scripts/prepare-sources.py --sources-only
 ```
 
-This reconstructs the source without accessing USB. A hardware-capable host build additionally requires **your own previously verified recovery material** and an ignored `local/device.json`. See [the build guide](docs/BUILD.md) for toolchain setup, source reconstruction, Freedoom conversion, and build commands.
+This reconstructs the source without accessing USB. For the **first backup**, build the independent read-only tool with `.\scripts\build-backup.ps1`; it needs no prior backup or private loader. Follow [first acquisition and verification](docs/FIRST-BACKUP.md) to obtain your own recovery material before building the hardware-update host. Initial acquisition accepts HW2.3 / stock 2.0.7; the new bootstrap sequence still needs an end-to-end test on untouched stock hardware. See [the build guide](docs/BUILD.md) for toolchains, Freedoom conversion, and the subsequent builds.
 
 ```powershell
 .\scripts\build-host.ps1
@@ -103,6 +103,7 @@ Read [the recovery guide](docs/RECOVERY.md) before using it. A fresh clone does 
 
 | Path | Contents |
 | --- | --- |
+| `bootstrap/` | Independent read-only first-backup tool and offline verifier |
 | `native/` | C engine bridge and host test harness |
 | `overlays/` | Added Rust files for the board firmware and host tools |
 | `patches/` | Changes to the pinned upstream repositories |

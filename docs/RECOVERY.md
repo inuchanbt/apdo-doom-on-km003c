@@ -1,6 +1,8 @@
-# Recovery for the verified unit
+# Recovery and per-device prerequisites
 
 The original HW2.3 meter's full stock restoration has been performed successfully. This proves the recorded procedure for that unit; it does not guarantee recovery for every device or failure mode.
+
+For another untouched HW2.3 / stock 2.0.7 unit, start with [FIRST-BACKUP.md](FIRST-BACKUP.md). The independent tool builds without existing backups and verifies stock/DFU reads before importing that unit's loader. Do not use the original unit's dumps. The new bootstrap sequence is covered by offline tests and still needs an end-to-end stock-device test. A successful read check alone is not proof of a successful flash/restore.
 
 ## Keep the private workspace
 
@@ -17,7 +19,7 @@ The configured external backup directory includes `external-4MiB.bin` and `verif
 
 ## Normal complete restoration
 
-Connect only the side HID port to the PC, with the measurement ports disconnected. From the prepared original workspace:
+Connect only the side HID port to the PC, with the measurement ports disconnected. Use a prepared workspace with that meter's verified stock restore package, full original NOR backup, loader baseline and configured paths:
 
 ```powershell
 .\scripts\restore-stock.ps1
@@ -45,6 +47,14 @@ if ($LASTEXITCODE -ne 0) { throw 'Custom application recovery failed' }
 The flash command verifies the application's full readback and the byte-exact private loader baseline. It does not replace the bootloader or ICG. The stock application alone is not the complete recovery sequence after game resources have replaced the original NOR prefix.
 
 ## Offline evidence check
+
+For new bootstrap acquisitions, verify the stock and native-DFU evidence without USB:
+
+```powershell
+.\bootstrap\target\release\km003c-backup.exe verify --stock backups/my-device-stock --require-dfu
+```
+
+This does not check a later full-NOR backup or prove a completed restoration. `game-backup` and the restoration commands validate their own full-NOR/readback evidence. For the original experiment's historical evidence layout only:
 
 ```powershell
 python scripts/check-recovery.py

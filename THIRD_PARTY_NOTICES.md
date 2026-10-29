@@ -2,6 +2,8 @@
 
 The repository's existing LICENSE is MIT, copyright 2026 @USB_PD_EPR_240W. It applies to original project documentation, orchestration scripts, and original Rust additions where no other license is stated. It does not relicense upstream material or GPL-covered engine integration.
 
+The independent `bootstrap/` backup tool is an original MIT-licensed Rust addition. Its pinned `km003c-lib` transport dependency and other Cargo dependencies retain their own licenses. Building it does not include or redistribute a device-private loader baseline.
+
 The low-memory DOOM engine and converter are based on Artur Bieniek's [DMC100-Doom](https://github.com/ArturBieniek4/DMC100-Doom), incorporating the id Software DOOM engine and doomgeneric. Preserve their source notices. The files in native/ and the DMC100-Doom converter patch are GPL-2.0-or-later; see COPYING and the upstream notices. Revisions and local changes are recorded in SOURCE_LOCK.json, patches/, overlays/, and native/.
 
 The board firmware and host transport are based on [okhsunrog/km003c-firmware](https://github.com/okhsunrog/km003c-firmware) and its pinned km003c-lib dependency. The pinned board repository has no top-level license file. Patches do not grant an additional license for that upstream source. Consult its individual file notices and dependency licenses before redistributing bundled sources or firmware binaries. The repository publishes source additions and patches, not a copy of the upstream firmware or proprietary recovery images.

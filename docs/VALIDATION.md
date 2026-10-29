@@ -47,3 +47,9 @@ The server was started with the HID cable unplugged and continued retrying beyon
 ## Responsive Web controller
 
 The preview and controls use two columns from 900 CSS pixels wide; narrower windows stack them. The layout was inspected at 1280×600, 1280×720, 1366×668, 1920×1080, 3840×2160, 900×600, and 390×844. Desktop layouts fit within the viewport with the footer visible; phone width uses vertical scrolling without horizontal overflow. The short-window check also verified that button text fits. Live capture and keyboard enable/release were checked, and the README screenshot was refreshed at 1280×720.
+
+## Independent first-backup workflow
+
+The new `bootstrap/` tool builds separately from the board workspace and uses no private firmware include. A cold release build also passed from a separate copy containing only the bootstrap crate and its environment/build scripts, with no `local/`, `backups/`, or `vendor/`, no configured serial, and a separate target directory (cached public Cargo dependencies, offline). Bootstrap acquisition/verification tests (9) and Python baseline-import tests (7) passed using synthetic files and no USB. The board host workspace tests passed (42, including the new installed-backup packaging test), and both host workspaces passed Clippy with warnings denied. The saved original stock application was packaged offline with exact installed-byte roundtrip validation; reusing the output path was rejected.
+
+These checks do not constitute an end-to-end acquisition on an untouched stock device. No firmware was flashed and the working DOOM application was retained during this change. The original hardware evidence above predates the new bootstrap command sequence. See [FIRST-BACKUP.md](FIRST-BACKUP.md) for its staged stock/DFU/full-NOR procedure.

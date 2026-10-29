@@ -35,9 +35,17 @@ Extract [LLVM-MinGW](https://github.com/mstorsjo/llvm-mingw/releases) to `tools/
 
 This changes the current shell environment only. If `tools/cargo/` and `tools/rustup/` exist, it uses those local installations; otherwise it uses the configured Rustup/Cargo homes. The GNU host linker is Rust's bundled GCC, and import libraries are handled by LLVM's dlltool.
 
-## 3. Prepare private recovery material
+## 3. Acquire and prepare private recovery material
 
-This step assumes a previous, verified acquisition from the target meter. This repository does not automate first-time recovery qualification for an unknown unit.
+For an untouched stock meter, start with [FIRST-BACKUP.md](FIRST-BACKUP.md). Its independent read-only tool builds without a previous backup or the board checkout:
+
+```powershell
+.\scripts\build-backup.ps1
+```
+
+That guide covers stock double reads, original application CRC validation, manual DFU entry and matching loader/application reads, offline verification, and creation of your restore package. Initial acquisition is restricted to HW2.3 / stock 2.0.7; the new bootstrap workflow has not yet been tested end to end on an untouched unit. Do not substitute a dummy or another meter's loader to bypass this step.
+
+After acquisition and DFU verification, configure your own material as described there:
 
 ```powershell
 New-Item -ItemType Directory -Force local
@@ -46,7 +54,7 @@ Copy-Item local.example.json local/device.json
 
 Edit `local/device.json` with the verified device serial, stock and external-backup paths, a generated DOOM package path, and the Python executable if needed. Paths are relative to the repository unless absolute. This file and `local/` are ignored by Git.
 
-The host loader allowlist needs `loader-00000004-00003fff.bin`, its `.sha256`, and its `.verified.json` recording two matching reads, in the configured stock backup directory. Full recovery also needs the stock application/package, full original external NOR backup, and verification evidence described in [RECOVERY.md](RECOVERY.md).
+The host loader allowlist needs `loader-00000004-00003fff.bin`, its `.sha256`, and its `.verified.json` recording two matching reads. Importing a new baseline additionally requires the bootstrap manifest and successful DFU evidence. The bootstrap verifier must already be built. Full recovery also needs the stock application/package and the full original external NOR backup described in [RECOVERY.md](RECOVERY.md). The last 1 MiB is acquired through the custom service after the first application flash, before writing game data; see [FIRST-BACKUP.md, step 5](FIRST-BACKUP.md#5-complete-the-original-nor-backup-before-installing-game-data).
 
 ```powershell
 python scripts/prepare-sources.py
@@ -79,6 +87,8 @@ The firmware script compiles the C engine, links the `doom` Rust feature for `th
 
 The application begins at `0x4000`. The DOOM feature starts USB and the game task while leaving measurement/PD tasks inactive. The engine reads the first 3 MiB of external NOR; the final 1 MiB stays protected from game-service writes.
 
+Create the original application's restore package with the offline `package-installed` command in FIRST-BACKUP.md **before** the first custom application write. Continue that guide for the full NOR acquisition and game installation order.
+
 ## Optional checks
 
 Use the source-preparation check above, then the upstream Rust checks:
@@ -104,3 +114,5 @@ python scripts/test-engine.py
 ```
 
 The optional `scripts/render-frame.py` converts a test frame to PNG and requires Pillow. The saved `docs/images/doom-host-preview.png` comes from this host harness. The README now shows the Web controller with a live device capture composited into the supplied enclosure image.
+
+The independent backup-tool tests and baseline-import tests are listed in [FIRST-BACKUP.md](FIRST-BACKUP.md#offline-development-checks). They require no device or private recovery files.
