@@ -190,7 +190,8 @@ def handler_for(bridge):
                 return self.respond(200, bitmap, "image/bmp") if bitmap else self.respond(404, {"error": "No captured frame yet"})
             assets = {"/": ("controller.html", "text/html; charset=utf-8"),
                       "/controller.js": ("controller.js", "text/javascript; charset=utf-8"),
-                      "/controller.css": ("controller.css", "text/css; charset=utf-8")}
+                      "/controller.css": ("controller.css", "text/css; charset=utf-8"),
+                      "/assets/km003c-shell.webp": ("assets/km003c-shell.webp", "image/webp")}
             if self.path not in assets:
                 return self.respond(404, {"error": "Not found"})
             name, content_type = assets[self.path]

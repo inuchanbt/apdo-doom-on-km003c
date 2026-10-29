@@ -12,7 +12,7 @@ Firmware **2.0.7-doom6 (v6)** adds a live PC preview to the keyboard controller.
 .\scripts\play.ps1
 ```
 
-The existing local controller now shows the captured game image. Click **Enable keyboard** to play from the PC as before. **Save frame** downloads the latest image as a lossless RGB565 BMP. The browser enlarges the preview with nearest-neighbor pixel display; the transferred image itself is 120×90. Uncheck **Live preview** to stop image transfers while keeping keyboard control and the latest captured image.
+The existing local controller now shows the captured game image inside the supplied KM003C enclosure image. The enclosure is rotated 90 degrees counterclockwise, placing the Type-C connector on the left; the game remains upright. The square display area preserves the game's 4:3 aspect ratio with black bars, matching the meter's game-area layout. Click **Enable keyboard** to play from the PC as before. **Save frame** downloads the latest image as a lossless RGB565 BMP. The browser enlarges the preview with nearest-neighbor pixel display; the transferred image itself is 120×90. Uncheck **Live preview** to stop image transfers while keeping keyboard control and the latest captured image.
 
 Use one controller process at a time. The HTTP service remains loopback-only, and existing key-release-on-blur and input leases remain active during capture. A preview failure does not stop the input task.
 
