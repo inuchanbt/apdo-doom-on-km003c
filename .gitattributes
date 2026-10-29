@@ -2,3 +2,4 @@
 *.png binary
 # Unified-diff context lines can contain significant trailing whitespace.
 *.patch -whitespace
+*.mp4 binary

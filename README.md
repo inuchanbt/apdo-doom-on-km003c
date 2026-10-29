@@ -8,6 +8,8 @@
 
 **Yes, the POWER-Z KM003C USB-C power meter runs DOOM.** More precisely, it runs the low-memory DOOM engine with Freedoom's E1M1 data on its own MCU. The PC builds, flashes, and verifies it; gameplay runs on the meter.
 
+**[▶ Watch the hardware demo — 60 seconds · MP4 · 5.1 MB](docs/videos/apdo-doom-on-km003c.mp4)**
+
 ![Web controller with a live capture from the KM003C](docs/images/km003c-web-controller.jpg)
 
 *Web control panel with a live 120×90 capture from the actual meter, composited into the supplied KM003C image. The meter renders the game; the browser controls and previews it.*
