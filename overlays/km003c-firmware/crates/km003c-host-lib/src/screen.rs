@@ -3,7 +3,7 @@ use crate::rpc::Client;
 use anyhow::{Context, Result, ensure};
 use km003c_interface::{
     CaptureScreen, ReadScreen,
-    preview::{BYTES, CHUNK, HEIGHT, ScreenChunk, ScreenRead, WIDTH},
+    preview::{CHUNK, ScreenChunk, ScreenRead, WIDTH},
 };
 use std::{
     sync::atomic::{AtomicBool, Ordering},
@@ -42,8 +42,8 @@ pub async fn capture(client: &Client) -> Result<Frame> {
     .context("screen capture timed out; install the preview firmware")??;
     ensure!(
         usize::from(info.width) == WIDTH
-            && usize::from(info.height) == HEIGHT
-            && usize::from(info.bytes) == BYTES
+            && [90, 120].contains(&info.height)
+            && usize::from(info.bytes) == WIDTH * usize::from(info.height) * 2
             && info.snapshot != 0,
         "unexpected screen geometry"
     );
@@ -57,20 +57,30 @@ pub async fn capture(client: &Client) -> Result<Frame> {
         read_chunk(client, info.snapshot, CHUNK * 4),
         read_chunk(client, info.snapshot, CHUNK * 5),
     );
-    let mut bytes: Vec<u8> = Vec::with_capacity(BYTES);
-    for chunk in [a?, b?, c?, d?, e?, f?] {
+    let size = usize::from(info.bytes);
+    let mut chunks = vec![a?, b?, c?, d?, e?, f?];
+    if size > 6 * CHUNK {
+        let (g, h) = tokio::join!(
+            read_chunk(client, info.snapshot, CHUNK * 6),
+            read_chunk(client, info.snapshot, CHUNK * 7)
+        );
+        chunks.push(g?);
+        chunks.push(h?);
+    }
+    let mut bytes: Vec<u8> = Vec::with_capacity(size);
+    for chunk in chunks {
         let count = usize::from(chunk.len);
         ensure!(
             chunk.valid
                 && chunk.snapshot == info.snapshot
                 && usize::from(chunk.offset) == bytes.len()
-                && count == (BYTES - bytes.len()).min(CHUNK),
+                && count == (size - bytes.len()).min(CHUNK),
             "snapshot replaced or invalid screen chunk"
         );
         bytes.extend(chunk.data.iter().flatten().flatten().take(count));
     }
-    ensure!(bytes.len() == BYTES, "incomplete screen snapshot");
-    let mut rgb565 = String::with_capacity(BYTES * 2);
+    ensure!(bytes.len() == size, "incomplete screen snapshot");
+    let mut rgb565 = String::with_capacity(size * 2);
     const HEX: &[u8] = b"0123456789abcdef";
     for byte in bytes {
         rgb565.push(HEX[usize::from(byte >> 4)] as char);

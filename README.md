@@ -4,7 +4,7 @@
 
 > This project complies with EPR (Extended Pixel Range). In demanding combat scenes, AVS (Adjustable Violence System) dynamically optimizes violence and frame rate in 100 mHz increments. The result is delivered to the KM003C display as an APDO (Augmented Power DOOM Object)—
 
-*EPR, AVS, and APDO above are USB-PD wordplay. The actual implementation is a native DOOM port running at roughly 6 fps.*
+*EPR, AVS, and APDO above are USB-PD wordplay. The implementation is a native DOOM port; measured performance is listed below.*
 
 **Yes, the POWER-Z KM003C USB-C power meter runs DOOM.** More precisely, it runs the low-memory DOOM engine with Freedoom's E1M1 data on its own MCU. The PC builds, flashes, and verifies it; gameplay runs on the meter.
 
@@ -12,7 +12,7 @@
 
 ![Web controller with a live capture from the KM003C](docs/images/km003c-web-controller.jpg)
 
-*Web control panel with a live 120×90 capture from the actual meter, composited into the supplied KM003C image. The meter renders the game; the browser controls and previews it.*
+*v8 controller with a 120×120 device capture inside the supplied KM003C image and the new frame-pacing selector. Image transfers are paused in this screenshot while testing native motion; the meter renders the game.*
 
 ## What works
 
@@ -21,13 +21,13 @@
 | Hardware | One POWER-Z KM003C HW2.3 unit; original firmware 2.0.7 |
 | Execution | Native Cortex-M4 / HC32F460 at 192 MHz |
 | Game | Freedoom 0.13.0, E1M1 |
-| Display | 240×180, centered on the 240×240 LCD |
-| Performance | About 171–173 ms per rendered frame, roughly 6 fps |
+| Display | 240×180 letterbox, or v8 square mode: 240×200 world + complete 40-row HUD |
+| Performance | Steady mode targets 8.75 fps; uncapped starting scene ~8.5 fps letterbox / ~9.6 fps square, preview off |
 | Controls | Movement, turning, shooting, use, and menu inputs |
 | PC controls | Browser keyboard/mouse panel over USB; device gameplay confirmed |
 | Meter LCD | v7 adds brightness buttons and manual 90° rotation from the PC |
-| PC preview | v6 captures the LCD game output at 120×90 RGB565; frame download included |
-| Startup | Automatic startup after about 3 seconds; unplug/replug and gameplay confirmed on the device |
+| PC preview | 120×90 letterbox / 120×120 square RGB565; frame download included |
+| Startup | Starts after a 3-second hold-button window plus game-read qualification; device auto-start verified |
 | Recovery | Original application and all 4 MiB of external NOR restored and verified; stock firmware boot confirmed |
 
 There is no sound, save support, persistent settings, or supported transition to another map in this build. The DOOM configuration does not start the meter's measurement or PD tasks. Use the side HID port for power and leave the measurement connectors disconnected.
@@ -65,6 +65,10 @@ Click **Enable keyboard** in the local panel. Use **WASD / arrows**, **Space / C
 With v7, **Meter LCD** buttons adjust the physical backlight and rotate the screen left/right in 90° steps. The preview offers **Device only** (game stays upright at a fixed position, default) and **Device + game** (joke mode). Settings reset on power-up.
 
 With v6, the same panel displays a live **120×90 RGB565 screen capture**. **Save frame** downloads a BMP. See [screen capture](docs/SCREEN-CAPTURE.md) for the resolution, memory use, and preview-rate limitations.
+
+The **Frame pacing** selector offers Steady (8.75 fps target, default) and Uncapped. Steady evens out the varying cost of different views; local inputs are sampled before simulation to avoid an extra frame of queued old input.
+
+v8 adds a square display build that retains the horizontal field of view and all HUD fields. The engine arena uses fast SRAMH; qualified 16 MHz NOR reads and a short-record cache improve the starting-scene render rate. Startup compares all game bytes at the original and faster read speeds before enabling faster reads. See [measurements, square mode, and the LZ4/DMA assessment](docs/PERFORMANCE.md).
 
 ## Source and build
 

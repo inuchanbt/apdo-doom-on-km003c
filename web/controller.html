@@ -44,6 +44,13 @@
           <option value="whole">Device + game · joke mode</option>
         </select>
       </label>
+      <label class="rotation-mode">Frame pacing
+        <select id="pacing" disabled>
+          <option value="1">Steady · 8.75 fps target</option>
+          <option value="0">Uncapped · fastest rendering</option>
+        </select>
+      </label>
+      <p id="pacing-error" role="status"></p>
       <p class="lcd-hint">LCD settings reset on power-up. Preview mode changes only the PC view.</p>
       <p id="display-error" role="status"></p>
 
@@ -64,7 +71,7 @@
       <p class="hint">Arrow keys also work. In menus, use ↑ / ↓ and Enter.<br>Keep this tab focused; switching away releases every key.</p>
     </section>
     </div>
-    <footer><p>Screen capture is 120×90 RGB565. Controls can also be held with a mouse or touch.</p><button id="stop">Stop controller</button></footer>
+    <footer><p>Live RGB565 capture from the meter. Controls also work with a mouse or touch.</p><button id="stop">Stop controller</button></footer>
     <p id="error" role="alert"></p>
   </main>
 </body>

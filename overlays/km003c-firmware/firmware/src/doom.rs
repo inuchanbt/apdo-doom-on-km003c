@@ -1,6 +1,7 @@
 //! One owner serializes LCD and external NOR. USB requests never access QSPI.
-use core::ptr::null_mut;
+use core::{cell::Cell, ptr::null_mut};
 use embassy_hc32::gpio::{InputPin, Port};
+use embassy_sync::blocking_mutex::Mutex;
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel, signal::Signal,
 };
@@ -12,6 +13,7 @@ use embedded_graphics::{
     text::Text,
 };
 use km003c_interface::display_control::{DisplayReply, DisplayRequest};
+use km003c_interface::doom_timing::DoomTiming;
 use km003c_interface::{GameCommand, GameInputReply, GameInputRequest, GameReply, RemoteGameInput};
 static DISPLAY_REQUEST: Channel<CriticalSectionRawMutex, DisplayRequest, 1> = Channel::new();
 static DISPLAY_REPLY: Signal<CriticalSectionRawMutex, DisplayReply> = Signal::new();
@@ -21,11 +23,80 @@ static INPUTS: Channel<CriticalSectionRawMutex, GameInputRequest, 1> = Channel::
 static INPUT_REPLY: Signal<CriticalSectionRawMutex, GameInputReply> = Signal::new();
 static mut DISPLAY: *mut crate::display::Display = null_mut();
 static mut KEYS: u32 = 0;
+static mut SQUARE: bool = false;
+#[unsafe(no_mangle)]
+extern "C" fn km_layout(square: i32) {
+    unsafe {
+        SQUARE = square != 0;
+    }
+    crate::capture::layout(square != 0);
+}
+static SMOOTH: Mutex<CriticalSectionRawMutex, Cell<bool>> = Mutex::new(Cell::new(true));
+pub fn pacing(request: Option<bool>) -> km003c_interface::pacing::PacingReply {
+    let smooth = SMOOTH.lock(|mode| {
+        if let Some(enabled) = request {
+            mode.set(enabled);
+        }
+        mode.get()
+    });
+    km003c_interface::pacing::PacingReply {
+        supported: true,
+        smooth,
+        period_us: if smooth {
+            km003c_interface::pacing::FRAME_PERIOD_US as u32
+        } else {
+            0
+        },
+    }
+}
+const EMPTY_TIMING: DoomTiming = DoomTiming {
+    frame: 0,
+    hclk_hz: 0,
+    total_cycles: 0,
+    nor_cycles: 0,
+    lcd_cycles: 0,
+    capture_cycles: 0,
+    nor_bytes: 0,
+    nor_calls: 0,
+    lcd_pixels: 0,
+    arena_address: 0,
+    view_width: 0,
+    nor_read_hz: 0,
+    verified_read_bytes: 0,
+    interval_cycles: 0,
+    interval_us: 0,
+    pacing_enabled: 0,
+    simulation_cycles: 0,
+    gametic: 0,
+    player_x: 0,
+    player_y: 0,
+    player_angle: 0,
+    applied_buttons: 0,
+    command_forward: 0,
+    command_turn: 0,
+    game_flags: 0,
+};
+static mut CURRENT_TIMING: DoomTiming = EMPTY_TIMING;
+static TIMING: Mutex<CriticalSectionRawMutex, Cell<DoomTiming>> =
+    Mutex::new(Cell::new(EMPTY_TIMING));
+pub fn timing() -> DoomTiming {
+    TIMING.lock(Cell::get)
+}
+fn cycles() -> u32 {
+    cortex_m::peripheral::DWT::cycle_count()
+}
+#[unsafe(no_mangle)]
+extern "C" fn km_cycles() -> u32 {
+    cycles()
+}
 unsafe extern "C" {
     fn km_doom_init();
     fn km_doom_step();
     fn km_doom_menu() -> i32;
     fn km_doom_redraw();
+    fn km_doom_width() -> i32;
+    fn km_doom_state(state: *mut u32);
+    static km_engine_ram: [u8; 32768];
 }
 pub async fn display_control(request: DisplayRequest) -> DisplayReply {
     DISPLAY_REQUEST.send(request).await;
@@ -65,26 +136,58 @@ unsafe extern "C" fn km_fail(message: *const core::ffi::c_char) -> ! {
 }
 #[unsafe(no_mangle)]
 unsafe extern "C" fn km_flash_read(address: u32, dst: *mut u8, count: u32) {
+    let start = cycles();
     unsafe {
         (&mut *DISPLAY).nor_read(
             address,
             core::slice::from_raw_parts_mut(dst, count as usize),
         );
+        CURRENT_TIMING.nor_cycles = CURRENT_TIMING
+            .nor_cycles
+            .wrapping_add(cycles().wrapping_sub(start));
+        CURRENT_TIMING.nor_bytes = CURRENT_TIMING.nor_bytes.wrapping_add(count);
+        CURRENT_TIMING.nor_calls = CURRENT_TIMING.nor_calls.wrapping_add(1);
+    }
+}
+#[unsafe(no_mangle)]
+extern "C" fn km_validate_reads(size: u32) {
+    unsafe {
+        let display = &mut *DISPLAY;
+        Text::new(
+            "Checking game reads...",
+            Point::new(12, 112),
+            MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE),
+        )
+        .draw(display)
+        .unwrap();
+        display.qualify_game_reads(size);
     }
 }
 #[unsafe(no_mangle)]
 unsafe extern "C" fn km_column(x: i32, y: i32, height: i32, pixels: *const u16) {
-    // Map the engine's complete 320x240 picture to 240x180, centered vertically.
-    if !(0..320).contains(&x) || x % 4 == 3 || y < 0 || height <= 0 || y + height > 240 {
+    // Square coordinates are already native. Letterbox maps 320x240 to 240x180.
+    let square = unsafe { SQUARE };
+    if !(0..if square { 240 } else { 320 }).contains(&x)
+        || (!square && x % 4 == 3)
+        || y < 0
+        || height <= 0
+        || y + height > 240
+    {
         return;
     }
     let source = unsafe { core::slice::from_raw_parts(pixels, height as usize) };
+    let capture_start = cycles();
     crate::capture::column(x as usize, y as usize, source);
-    let mut out = [Rgb565::BLACK; 180];
+    unsafe {
+        CURRENT_TIMING.capture_cycles = CURRENT_TIMING
+            .capture_cycles
+            .wrapping_add(cycles().wrapping_sub(capture_start));
+    }
+    let mut out = [Rgb565::BLACK; 240];
     let mut count = 0;
     for (i, &c) in source.iter().enumerate() {
         let row = y + i as i32;
-        if row % 4 != 3 {
+        if square || row % 4 != 3 {
             out[count] = Rgb565::new(
                 ((c >> 11) & 31) as u8,
                 ((c >> 5) & 63) as u8,
@@ -93,22 +196,41 @@ unsafe extern "C" fn km_column(x: i32, y: i32, height: i32, pixels: *const u16) 
             count += 1;
         }
     }
-    let first = if y % 4 == 3 { y + 1 } else { y };
+    let first = if !square && y % 4 == 3 { y + 1 } else { y };
     if count > 0 {
+        let lcd_start = cycles();
         unsafe {
             (&mut *DISPLAY).blit(
                 Rectangle::new(
-                    Point::new(x - x / 4, 30 + first - first / 4),
+                    Point::new(
+                        if square { x } else { x - x / 4 },
+                        if square {
+                            first
+                        } else {
+                            30 + first - first / 4
+                        },
+                    ),
                     Size::new(1, count as u32),
                 ),
                 &out[..count],
             );
+            CURRENT_TIMING.lcd_cycles = CURRENT_TIMING
+                .lcd_cycles
+                .wrapping_add(cycles().wrapping_sub(lcd_start));
+            CURRENT_TIMING.lcd_pixels = CURRENT_TIMING.lcd_pixels.wrapping_add(count as u32);
         }
     }
 }
 
 #[embassy_executor::task]
 pub async fn task(aw: crate::aw9523::Aw9523) {
+    // Enable the cycle counter without resetting counters used by other diagnostics.
+    unsafe {
+        let demcr = 0xe000edfc as *mut u32;
+        let control = 0xe0001000 as *mut u32;
+        core::ptr::write_volatile(demcr, core::ptr::read_volatile(demcr) | (1 << 24));
+        core::ptr::write_volatile(control, core::ptr::read_volatile(control) | 1);
+    }
     aw.lcd_reset().await.unwrap();
     aw.backlight(0).await.unwrap();
     static PANEL: static_cell::StaticCell<crate::display::Display> = static_cell::StaticCell::new();
@@ -162,6 +284,8 @@ pub async fn task(aw: crate::aw9523::Aw9523) {
     let mut remote = RemoteGameInput::default();
     let mut brightness = 100u8;
     let mut rotation = 0u8;
+    let mut previous_start = 0u32;
+    let mut previous_start_us = 0u64;
     loop {
         if let Ok(request) = DISPLAY_REQUEST.try_receive() {
             let mut accepted = request.valid();
@@ -322,10 +446,49 @@ pub async fn task(aw: crate::aw9523::Aw9523) {
                 frame_ms: elapsed_ms,
             });
         }
+        let mut next_frame = None;
         if running {
             let start = embassy_time::Instant::now();
+            let smooth = SMOOTH.lock(Cell::get);
+            if smooth {
+                next_frame = Some(
+                    start
+                        + embassy_time::Duration::from_micros(
+                            km003c_interface::pacing::FRAME_PERIOD_US,
+                        ),
+                );
+            }
+            let cycle_start = cycles();
             unsafe {
+                CURRENT_TIMING = EMPTY_TIMING;
                 km_doom_step();
+                CURRENT_TIMING.total_cycles = cycles().wrapping_sub(cycle_start);
+                let mut game = [0u32; 9];
+                km_doom_state(game.as_mut_ptr());
+                CURRENT_TIMING.interval_cycles = cycle_start.wrapping_sub(previous_start);
+                previous_start = cycle_start;
+                CURRENT_TIMING.interval_us =
+                    start.as_micros().saturating_sub(previous_start_us) as u32;
+                previous_start_us = start.as_micros();
+                CURRENT_TIMING.pacing_enabled = u32::from(smooth);
+                CURRENT_TIMING.gametic = game[0];
+                CURRENT_TIMING.player_x = game[1] as i32;
+                CURRENT_TIMING.player_y = game[2] as i32;
+                CURRENT_TIMING.player_angle = game[3];
+                CURRENT_TIMING.applied_buttons = game[4];
+                CURRENT_TIMING.command_forward = game[5] as i32;
+                CURRENT_TIMING.command_turn = game[6] as i32;
+                CURRENT_TIMING.game_flags = game[7];
+                CURRENT_TIMING.simulation_cycles = game[8];
+                CURRENT_TIMING.frame = frames.wrapping_add(1);
+                CURRENT_TIMING.hclk_hz = 192_000_000;
+                CURRENT_TIMING.arena_address = core::ptr::addr_of!(km_engine_ram) as u32;
+                CURRENT_TIMING.view_width = km_doom_width() as u32;
+                let (hz, checked) = display.game_read_speed();
+                CURRENT_TIMING.nor_read_hz = hz;
+                CURRENT_TIMING.verified_read_bytes = checked;
+                let completed = CURRENT_TIMING;
+                TIMING.lock(|timing| timing.set(completed));
             }
             elapsed_ms = start.elapsed().as_millis() as u32;
             frames = frames.wrapping_add(1);
@@ -333,5 +496,8 @@ pub async fn task(aw: crate::aw9523::Aw9523) {
         }
         // Leave USB a short burst window while a preview is being transferred.
         embassy_time::Timer::after_millis(if crate::capture::active() { 8 } else { 1 }).await;
+        if let Some(deadline) = next_frame {
+            embassy_time::Timer::at(deadline).await;
+        }
     }
 }

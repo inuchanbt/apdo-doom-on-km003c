@@ -6,7 +6,7 @@ let token = "", armed = false, stopped = false, sending = false;
 let pending = [];
 let screenSnapshot = 0;
 let connectionId = null, usbConnected = false;
-let lcd = null, displayBusy = false;
+let lcd = null, displayBusy = false, pacingBusy = false;
 let mockupTurns = 0, lastLcdRotation = 0;
 let rotationMode = "device";
 const $ = id => document.getElementById(id);
@@ -78,6 +78,23 @@ async function setLcd(setting,value) {
   } catch(error) { $("display-error").textContent=error.message; }
   finally { displayBusy=false; paintLcd(true); }
 }
+$("pacing").addEventListener("change",async()=>{
+  const enabled=$("pacing").value==="1";
+  releaseAll(); pacingBusy=true; $("pacing").disabled=true;
+  try {
+    const response=await fetch("/api/pacing",{method:"POST",headers:{"Content-Type":"application/json","X-APDO-Token":token},body:JSON.stringify({enabled})});
+    if(!response.ok) throw new Error("Could not change frame pacing");
+    const deadline=Date.now()+4000;
+    while(Date.now()<deadline) {
+      await new Promise(resolve=>setTimeout(resolve,150));
+      const state=await (await fetch("/api/status")).json();
+      if(state.pacing_error) throw new Error(state.pacing_error);
+      if(state.pacing && state.pacing.smooth===enabled) return;
+    }
+    throw new Error("The meter did not acknowledge frame pacing");
+  } catch(error) { $("pacing-error").textContent=error.message; }
+  finally { pacingBusy=false; }
+});
 $("dim").addEventListener("click",()=>void setLcd("brightness",Math.max(10,lcd.brightness-10)));
 $("brighten").addEventListener("click",()=>void setLcd("brightness",Math.min(100,lcd.brightness+10)));
 $("rotate-left").addEventListener("click",()=>void setLcd("rotation",(lcd.rotation+3)%4));
@@ -133,6 +150,9 @@ async function status() {
     document.querySelectorAll("[data-mask]").forEach(button=>{button.disabled=!usbConnected;});
     $("connection").textContent=state.connected ? (state.running ? "Meter connected · game running" : "Meter connected · waiting for game") : "Waiting for KM003C · reconnecting automatically…";
     $("dot").classList.toggle("connected",state.connected);
+    $("pacing").disabled=pacingBusy || !state.connected || !state.pacing?.supported;
+    if(!pacingBusy && state.pacing?.supported) $("pacing").value=state.pacing.smooth ? "1" : "0";
+    if(!pacingBusy) $("pacing-error").textContent=state.pacing_error || "";
     lcd=state.display || null; paintLcd(state.connected);
     if(!displayBusy) $("display-error").textContent=state.display_error || "";
     $("performance").textContent=state.render_fps ? `${state.render_fps.toFixed(1)} game fps · ${state.frames} frames` : "—";

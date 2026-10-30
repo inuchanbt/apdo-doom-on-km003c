@@ -3,6 +3,7 @@ import ctypes as C
 from pathlib import Path
 import hashlib
 import json
+import random
 root=Path(__file__).resolve().parents[1]
 dll=C.CDLL(str(root/'artifacts/host-engine/kmdoom-test.dll'))
 dll.km_host_init.argtypes=[C.c_void_p,C.c_uint32]
@@ -12,6 +13,15 @@ dll.km_host_screen.restype=C.POINTER(C.c_uint16)
 pack=(root/'vendor/dmc100-doom/build/packs/E1M1/DOOM.DAT').read_bytes()
 data=C.create_string_buffer(pack)
 assert dll.km_host_init(data,len(pack))==0,dll.km_host_error()
+assert dll.km_host_check_projection()==0,'projection differs from vanilla reference tables'
+dll.km_host_read.argtypes=[C.c_uint32,C.c_void_p,C.c_uint32]
+scratch=C.create_string_buffer(512)
+rng=random.Random(0x003c)
+requests=[(len(pack)-n,n) for n in [1,16,63,64,65,256,512]]
+requests += [(rng.randrange(len(pack)-512),rng.randrange(1,513)) for _ in range(1000)]
+for off,n in requests:
+    assert dll.km_host_read(off,scratch,n)==0,dll.km_host_error()
+    assert scratch.raw[:n]==pack[off:off+n],('read cache mismatch',off,n)
 hashes=[]
 for i in range(140):
     keys=(2 if 35<=i<70 else 0)|(8 if 70<=i<100 else 0)|(1 if 100<=i<125 else 0)
@@ -31,4 +41,4 @@ assert hud_after==hud_before,'rotation redraw lost unchanged HUD pixels'
 for key in [32,0,128,0,64,0]:
     assert dll.km_host_step(key)==0,dll.km_host_error()
 (root/'artifacts/host-engine/verified.json').write_text(json.dumps(hashes,indent=2)+'\n')
-print('PASS: 140 game frames, movement, turning, firing, menu input and complete HUD redraw')
+print('PASS: exact projection tables, 1007 cached range reads, 140 game frames, movement, turning, firing, menu input and complete HUD redraw')

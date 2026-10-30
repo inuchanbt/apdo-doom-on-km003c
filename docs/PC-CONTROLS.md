@@ -2,6 +2,8 @@
 
 Firmware **2.0.7-doom5 (v5)** adds a separate USB game-input endpoint. The user confirmed movement, turning, and firing from the PC on the actual meter. **v6** also adds a [120×90 RGB565 screen preview and image download](SCREEN-CAPTURE.md). Rendering and game simulation still run on the KM003C.
 
+v8 square firmware uses a 120×120 preview and adds several seconds to startup while comparing the game pack at both NOR read speeds. Rebuild the host for square captures. [Performance notes](PERFORMANCE.md) distinguish device render time from preview rate.
+
 ## Start
 
 Connect only the side HID port to the PC. From the prepared workspace, after building the updated host and installing the PC-control firmware:
@@ -36,6 +38,10 @@ Run one controller process and one active control tab at a time. Stop it before 
 ## Responsive panel
 
 At browser widths of 900 CSS pixels and above, the live preview and controls appear side by side. Preview size follows the available viewport height, and shorter desktop windows use compact spacing. At narrower widths, the panels stack vertically with normal page scrolling. No controls are hidden to make the desktop layout fit. The enclosure still rotates around the fixed video center.
+
+## Frame pacing (v8)
+
+**Frame pacing** selects **Steady · 8.75 fps target** (default) or **Uncapped · fastest rendering** on the meter. Steady schedules frames four 35 Hz game tics apart; heavy scenes can exceed its budget. This helps even out faster and slower views. The selector releases keys and disarms keyboard control before changing mode. Enable keyboard again afterwards. It does not change LCD rotation or preview rotation, and resets on power-up. Disable Live preview when comparing native motion.
 
 ## Physical LCD settings (v7)
 

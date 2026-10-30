@@ -6,6 +6,12 @@ Firmware **2.0.7-doom6 (v6)** adds a live PC preview to the keyboard controller.
 
 *Actual device capture, not the host test renderer. The controller enlarges this 120×90 image.*
 
+## v8 square captures
+
+v8 keeps 120×90 for letterbox builds and reports **120×120** for `-Square` builds. The new host accepts both geometries. It queues six reads, then the remaining two for a square snapshot, retaining transport capacity for input. Both live and frozen buffers reserve 28,800 bytes; square projection tables and the record cache use ordinary SRAM while the 32 KiB engine arena moves to SRAMH. The final square ELF uses 104,340 B of BSS and 680 B of data in main RAM, leaving about 25 KiB for stack and alignment, plus the separate 32 KiB SRAMH arena. This replaces the v6 memory figures below.
+
+The game still renders on the meter. Preview transfers can reduce gameplay cadence; disable Live preview when comparing native render speed. See [v8 measurements](PERFORMANCE.md). The historical v6 capture and measurements below remain useful as the original reference.
+
 ## Use
 
 ```powershell

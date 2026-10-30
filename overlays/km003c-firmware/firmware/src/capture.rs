@@ -7,6 +7,9 @@ static BUFFERS: Mutex<CriticalSectionRawMutex, RefCell<ScreenBuffers>> =
     Mutex::new(RefCell::new(ScreenBuffers::new()));
 static ACTIVE: Mutex<CriticalSectionRawMutex, RefCell<u64>> = Mutex::new(RefCell::new(0));
 
+pub fn layout(square: bool) {
+    BUFFERS.lock(|buffers| buffers.borrow_mut().layout(square));
+}
 pub fn column(x: usize, y: usize, pixels: &[u16]) {
     BUFFERS.lock(|buffers| buffers.borrow_mut().column(x, y, pixels));
 }

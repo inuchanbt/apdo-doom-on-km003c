@@ -85,6 +85,8 @@ The converter downloads the official Freedoom 0.13.0 release into its ignored `d
 
 The firmware script compiles the C engine, links the `doom` Rust feature for `thumbv7em-none-eabihf`, converts the ELF to a raw application image, and validates/packages it as `artifacts/km003c-doom.mencrypt`. It refuses to overwrite an output with the same name. A default timestamped name can also be used. **Neither build command flashes USB hardware.**
 
+v8 defaults to `-O2`, a 32 KiB SRAMH engine arena and an 8 KiB short-record data cache. Standard NOR game reads use 16 MHz only after a complete comparison against original-speed reads on each game startup. Use `-SafeNor` to keep 8 MHz. Add `-Square` for the 240×200 world + 40-row HUD layout and rebuild the host for 120×120 captures. The normal build keeps the 240×180 layout. See [performance and build comparisons](PERFORMANCE.md).
+
 The application begins at `0x4000`. The DOOM feature starts USB and the game task while leaving measurement/PD tasks inactive. The engine reads the first 3 MiB of external NOR; the final 1 MiB stays protected from game-service writes.
 
 Create the original application's restore package with the offline `package-installed` command in FIRST-BACKUP.md **before** the first custom application write. Continue that guide for the full NOR acquisition and game installation order.

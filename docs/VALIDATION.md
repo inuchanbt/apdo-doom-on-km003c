@@ -76,3 +76,48 @@ The offline recovery checker now supports complete bootstrap snapshot sets and a
 The owner confirmed physical game controls after restoring DOOM. Their normal-browser tab still pointed to an old, stopped server port and reported `Failed to fetch`; navigating it to the active server restored the connection. Idle-tab zero-input heartbeats were also removed so an inactive page cannot repeatedly clear another page's controls. With the in-app page and Opera both open, Opera keyboard input produced accepted and applied forward, right-turn and fire masks on the meter, followed by zero remote/applied keys. A screenshot and input observations are kept with the private run evidence.
 
 Raw acquisitions, hashes, restore packages, logs and comparison records remain in ignored `artifacts/bootstrap-device-check-20261030-*/`. This validates one restored unit, not a second untouched meter or every firmware/hardware revision.
+
+
+## Rendering throughput, square output and frame cadence (v8, 2026-10-30–31)
+
+DWT measurements on the same HW2.3 meter separated engine work, physical NOR
+reads, LCD blits and capture updates. The original starting-scene median was
+176.232 ms per frame, including 124.412 ms in NOR reads and 11.293 ms in LCD
+blits. SRAMH placement and `-O2` alone had a small effect. A broad 64-byte-line
+cache increased traffic and was rejected. The retained 16-byte-line short-read
+cache and qualified 16 MHz reads reduced letterbox engine work to 117.993 ms,
+and the square viewport to 104.228 ms. These are engine-work measurements with
+preview off; they exclude the subsequent Steady scheduling wait.
+
+On each final-variant startup the firmware compared all 2,802,000 game bytes at
+original and faster read speeds before enabling 16 MHz. Both variants reported
+complete agreement. The pack format and external NOR contents were unchanged.
+Every application update used complete readback and unchanged-loader checks.
+The engine arena address was verified as `0x1fff8000`.
+
+The owner confirmed that the square game worked and felt smoother, then reported
+uneven motion. A held-turn diagnostic found no angle stops in its 160 samples,
+but engine work varied from 43.19 to 110.57 ms. Steady mode now targets four game
+tics per frame (8.75 fps), with an Uncapped comparison mode. On the same boot,
+155 retained samples per mode measured a median 114.288 ms Steady frame interval
+versus 55.267 ms Uncapped. Steady's 90th percentile was 114.289 ms and maximum
+117.981 ms, compared with 103.637/113.189 ms Uncapped; interval standard deviations
+were 0.333/19.555 ms. All 144 observed consecutive Steady pairs advanced four tics.
+The owner subsequently confirmed reduced hitching and more even motion on the
+meter and PC controls with preview off.
+
+The host regression reproduces stale turn commands after a simulated 100 ms draw
+with the legacy input queue. With commands built just before simulation, turn
+press and release both apply in the first frame. Projection checks match the
+original 320/160-column angle tables exactly; cached range reads, 140 gameplay
+frames, menu input and complete HUD redraw checks pass. The Rust workspace passed
+46 tests and host/DOOM firmware Clippy with warnings denied. Twelve local HTTP
+checks and seven recovery-preflight checks passed. Normal and square builds pass.
+
+The Web selector was verified against the acknowledged physical pacing state;
+changing pacing preserved LCD rotation at 0 degrees and released input. The final
+square application, Steady mode and the controller remain running. The new
+control still fits a 1280×720 viewport (footer bottom about 687 CSS pixels), and
+the README screenshot was refreshed. Raw measurements, update evidence and
+packages remain in ignored `artifacts/performance-20261030/`; sanitized medians
+are in [performance-v8.json](performance-v8.json). See [performance notes](PERFORMANCE.md).

@@ -1,8 +1,8 @@
 diff --git a/crates/km003c-host-cli/src/main.rs b/crates/km003c-host-cli/src/main.rs
-index e855d65..ec26eef 100644
+index e855d65..22e7fc5 100644
 --- a/crates/km003c-host-cli/src/main.rs
 +++ b/crates/km003c-host-cli/src/main.rs
-@@ -24,6 +24,50 @@ struct Args {
+@@ -24,6 +24,63 @@ struct Args {
  }
  #[derive(Subcommand)]
  enum Command {
@@ -11,6 +11,19 @@ index e855d65..ec26eef 100644
 +    RecoveryLoader,
 +    StockStart,
 +    GameStatus,
++    /// RAM-only frame scheduling; steady targets four game tics per frame.
++    GamePacing {
++        #[arg(default_value="status", value_parser=["status", "steady", "uncapped"])]
++        mode: String,
++    },
++    /// Sample distinct frame cycle counters; stop the browser preview first.
++    GameProfile {
++        #[arg(long, default_value_t = 30)]
++        samples: u16,
++        /// Apply right-turn input during sampling; release it before exiting.
++        #[arg(long)]
++        turn_right: bool,
++    },
 +    /// Accept decimal key masks on stdin; emit JSON acknowledgements.
 +    GameControl {
 +        #[arg(long)]
@@ -53,7 +66,7 @@ index e855d65..ec26eef 100644
      Status,
      /// Current PD owner and last command/session results.
      PdStatus,
-@@ -61,6 +105,11 @@ enum Command {
+@@ -61,6 +118,11 @@ enum Command {
          binary: PathBuf,
          output: PathBuf,
      },
@@ -65,7 +78,7 @@ index e855d65..ec26eef 100644
      /// Save the current application from DFU, verifying its committed CRC.
      Backup {
          output: PathBuf,
-@@ -87,9 +136,64 @@ async fn main() -> Result<()> {
+@@ -87,9 +149,81 @@ async fn main() -> Result<()> {
      let selector = args
          .serial
          .map_or(DeviceSelector::First, DeviceSelector::SerialNumber);
@@ -80,6 +93,23 @@ index e855d65..ec26eef 100644
 +        }
 +        Command::StockStart => km003c_host_lib::stock::start(selector).await?,
 +        Command::GameStatus => km003c_host_lib::game::status(selector).await?,
++        Command::GamePacing { mode } => {
++            let client = Client::connect(selector).await?;
++            let request = match mode.as_str() {
++                "steady" => Some(true),
++                "uncapped" => Some(false),
++                _ => None,
++            };
++            let reply = client
++                .rpc
++                .send_resp::<km003c_host_lib::interface::ControlGamePacing>(&request)
++                .await?;
++            println!("{reply:?}");
++        }
++        Command::GameProfile {
++            samples,
++            turn_right,
++        } => km003c_host_lib::profiling::sample(selector, samples, turn_right).await?,
 +        Command::GameControl { preview } => {
 +            km003c_host_lib::controller::control_stdin(selector, preview).await?
 +        }
@@ -133,10 +163,10 @@ index e855d65..ec26eef 100644
              let mut file = std::fs::OpenOptions::new()
                  .write(true)
 diff --git a/crates/km003c-host-lib/src/lib.rs b/crates/km003c-host-lib/src/lib.rs
-index d5e2736..b0dd8c2 100644
+index d5e2736..b22afd5 100644
 --- a/crates/km003c-host-lib/src/lib.rs
 +++ b/crates/km003c-host-lib/src/lib.rs
-@@ -1,8 +1,12 @@
+@@ -1,8 +1,13 @@
  //! Reusable host runtime: RPC, recording, experiments and native-loader updates.
  pub mod capture;
 +pub mod controller;
@@ -144,6 +174,7 @@ index d5e2736..b0dd8c2 100644
  pub mod maintenance;
  pub mod maneuver;
  pub mod package;
++pub mod profiling;
  pub mod rpc;
 +pub mod screen;
 +pub mod stock;
@@ -386,16 +417,20 @@ index 2ff63df..4b00527 100644
 +    }
  }
 diff --git a/crates/km003c-interface/src/lib.rs b/crates/km003c-interface/src/lib.rs
-index d2e58f5..8860e4e 100644
+index d2e58f5..838b808 100644
 --- a/crates/km003c-interface/src/lib.rs
 +++ b/crates/km003c-interface/src/lib.rs
-@@ -23,6 +23,163 @@ pub struct Measurement {
+@@ -23,6 +23,167 @@ pub struct Measurement {
      pub lines_uv: Option<[u32; 4]>,
  }
  pub type LoaderResult = Result<(), ()>;
 +pub mod display_control;
 +use display_control::{DisplayReply, DisplayRequest};
++pub mod doom_timing;
++pub mod pacing;
++use pacing::{PacingReply, PacingRequest};
 +pub mod preview;
++use doom_timing::DoomTiming;
 +use preview::{ScreenChunk, ScreenInfo, ScreenRead};
 +// A bounded inline page is intentional: this no_std wire contract uses no heap.
 +#[allow(clippy::large_enum_variant)]
@@ -553,7 +588,7 @@ index d2e58f5..8860e4e 100644
  postcard_rpc::endpoints! {
      list = ENDPOINTS;
      | EndpointTy | RequestTy | ResponseTy | Path |
-@@ -32,6 +189,11 @@ postcard_rpc::endpoints! {
+@@ -32,6 +193,13 @@ postcard_rpc::endpoints! {
      | SetStream | bool | () | "km003c/stream" |
      | EnterLoader | () | LoaderResult | "km003c/loader" |
      | ControlPd | PdControl | ControlResult | "km003c/pd/control" |
@@ -562,6 +597,8 @@ index d2e58f5..8860e4e 100644
 +    | CaptureScreen | () | ScreenInfo | "km003c/doom/screen/capture" |
 +    | ReadScreen | ScreenRead | ScreenChunk | "km003c/doom/screen/read" |
 +    | ControlDisplay | DisplayRequest | DisplayReply | "km003c/doom/display" |
++    | GetDoomTiming | () | DoomTiming | "km003c/doom/timing" |
++        | ControlGamePacing | PacingRequest | PacingReply | "km003c/doom/pacing" |
  }
  postcard_rpc::topics! {
      list = TOPICS_IN;
@@ -598,12 +635,33 @@ index d782564..b73fe9f 100644
 +        );
 +    }
  }
+diff --git a/firmware/metadata.x b/firmware/metadata.x
+index 649cc0f..2e80471 100644
+--- a/firmware/metadata.x
++++ b/firmware/metadata.x
+@@ -16,8 +16,12 @@ SECTIONS
+     __epd_fast = .;
+   } > SRAMH AT > FLASH
+   __sipd_fast = LOADADDR(.pd_fast);
++  .doom_arena (NOLOAD) : ALIGN(16) {
++    *(.doom_arena);
++  } > SRAMH
+ }
+ /* Keep cortex-m-rt's __edata assignment adjacent to .data. Inserting another
+  * RAM bank after it would make CRT startup copy until the wrong address. */
+ INSERT BEFORE .data;
+ ASSERT(__edata == ADDR(.data) + SIZEOF(.data), "Invalid CRT data-copy boundary");
++ASSERT(SIZEOF(.doom_arena) == 0 || SIZEOF(.pd_fast) == 0, "DOOM arena cannot overlap PD fast code");
 diff --git a/firmware/src/display.rs b/firmware/src/display.rs
-index 76e66b9..c5f84f4 100644
+index 76e66b9..949d9fa 100644
 --- a/firmware/src/display.rs
 +++ b/firmware/src/display.rs
-@@ -17,6 +17,91 @@ pub struct Display {
+@@ -15,8 +15,143 @@ const SR: *const u32 = 0x9c00000c as *const u32;
+ const DATA: *mut u32 = 0x9c000010 as *mut u32;
+ pub struct Display {
      rotation: km003c_drivers::rotation::Rotation,
++    fast_game_reads: bool,
++    verified_game_bytes: u32,
  }
  impl Display {
 +    /// Explicit single-SPI NOR operations. The UI/game task exclusively owns
@@ -614,6 +672,15 @@ index 76e66b9..c5f84f4 100644
 +                .checked_add(bytes.len() as u32)
 +                .is_some_and(|end| end <= 0x400000)
 +        );
++        let saved = unsafe { read(CR) };
++        if self.fast_game_reads {
++            Self::idle();
++            // DIV=11: HCLK/12 = 16 MHz. Only standard 03 reads use this;
++            // commands, programming, erase and the LCD retain their settings.
++            unsafe {
++                write(CR, (saved & !0x003f0000) | (11 << 16));
++            }
++        }
 +        self.flash_read(
 +            &[
 +                3,
@@ -623,6 +690,45 @@ index 76e66b9..c5f84f4 100644
 +            ],
 +            bytes,
 +        );
++        if self.fast_game_reads {
++            unsafe {
++                write(CR, saved);
++            }
++        }
++    }
++    /// Compare every game byte at the original 8 MHz and proposed 16 MHz.
++    /// A mismatch leaves reads at the original speed; no flash commands write.
++    pub fn qualify_game_reads(&mut self, size: u32) {
++        assert!((4096..=0x300000).contains(&size));
++        self.fast_game_reads = false;
++        self.verified_game_bytes = 0;
++        if option_env!("APDO_SAFE_NOR") == Some("1") {
++            return;
++        }
++        let mut slow = [0u8; 512];
++        let mut fast = [0u8; 512];
++        for address in (0..size).step_by(512) {
++            let count = (size - address).min(512) as usize;
++            self.fast_game_reads = false;
++            self.nor_read(address, &mut slow[..count]);
++            self.fast_game_reads = true;
++            self.nor_read(address, &mut fast[..count]);
++            if slow[..count] != fast[..count] {
++                self.fast_game_reads = false;
++                return;
++            }
++        }
++        self.verified_game_bytes = size;
++    }
++    pub fn game_read_speed(&self) -> (u32, u32) {
++        (
++            if self.fast_game_reads {
++                16_000_000
++            } else {
++                8_000_000
++            },
++            self.verified_game_bytes,
++        )
 +    }
 +    pub fn nor_jedec(&mut self) -> u32 {
 +        let mut id = [0; 3];
@@ -694,8 +800,17 @@ index 76e66b9..c5f84f4 100644
      /// Read the native settings-A copy without any write-enable, program or
      /// erase command. Call before panel init while this owner has the entire
      /// shared QSPI bus. Leave flash in standard SPI, which also works after a
+@@ -83,6 +218,8 @@ impl Display {
+         }
+         Self {
+             rotation: km003c_drivers::rotation::Rotation::default(),
++            fast_game_reads: false,
++            verified_game_bytes: 0,
+         }
+     }
+     pub fn set_rotation(&mut self, turns: u8) {
 diff --git a/firmware/src/main.rs b/firmware/src/main.rs
-index 7231bba..37c6448 100644
+index 7231bba..a40c283 100644
 --- a/firmware/src/main.rs
 +++ b/firmware/src/main.rs
 @@ -1,13 +1,18 @@
@@ -726,7 +841,7 @@ index 7231bba..37c6448 100644
 +    let fields: [&[u8]; 3] = [
 +        b"KM003C",
 +        if cfg!(feature = "doom") {
-+            b"2.0.7-doom7"
++            b"2.0.7-doom8"
 +        } else {
 +            b"rust-rpc"
 +        },
@@ -789,10 +904,10 @@ index 7231bba..37c6448 100644
  }
  
 diff --git a/firmware/src/rpc.rs b/firmware/src/rpc.rs
-index c55488f..d817170 100644
+index c55488f..f6456af 100644
 --- a/firmware/src/rpc.rs
 +++ b/firmware/src/rpc.rs
-@@ -44,6 +44,99 @@ fn stream(_: &mut Context, _: VarHeader, enabled: bool) {
+@@ -44,6 +44,124 @@ fn stream(_: &mut Context, _: VarHeader, enabled: bool) {
  async fn loader(_: &mut Context, _: VarHeader, _: ()) -> LoaderResult {
      crate::enter_loader(0x600d0002).await.map_err(|_| ())
  }
@@ -852,6 +967,31 @@ index c55488f..d817170 100644
 +        }
 +    }
 +}
++fn game_pacing(
++    _: &mut Context,
++    _: VarHeader,
++    request: Option<bool>,
++) -> km003c_interface::pacing::PacingReply {
++    #[cfg(feature = "doom")]
++    {
++        crate::doom::pacing(request)
++    }
++    #[cfg(not(feature = "doom"))]
++    {
++        let _ = request;
++        km003c_interface::pacing::PacingReply::default()
++    }
++}
++fn doom_timing(_: &mut Context, _: VarHeader, _: ()) -> doom_timing::DoomTiming {
++    #[cfg(feature = "doom")]
++    {
++        crate::doom::timing()
++    }
++    #[cfg(not(feature = "doom"))]
++    {
++        doom_timing::DoomTiming::default()
++    }
++}
 +fn capture_screen(_: &mut Context, _: VarHeader, _: ()) -> preview::ScreenInfo {
 +    #[cfg(feature = "doom")]
 +    {
@@ -892,7 +1032,7 @@ index c55488f..d817170 100644
  define_dispatch! {
      app: App;
      spawn_fn: spawn_fn;
-@@ -59,6 +152,11 @@ define_dispatch! {
+@@ -59,6 +177,13 @@ define_dispatch! {
          | SetStream | blocking | stream |
          | EnterLoader | async | loader |
          | ControlPd | blocking | pd_control |
@@ -901,10 +1041,12 @@ index c55488f..d817170 100644
 +        | CaptureScreen | blocking | capture_screen |
 +        | ReadScreen | blocking | read_screen |
 +        | ControlDisplay | async | control_display |
++        | GetDoomTiming | blocking | doom_timing |
++        | ControlGamePacing | blocking | game_pacing |
  
      };
      topics_in: {
-@@ -70,13 +168,13 @@ define_dispatch! {
+@@ -70,13 +195,13 @@ define_dispatch! {
  }
  pub async fn run(driver: Driver<'static>, spawner: embassy_executor::Spawner) {
      static STORAGE: WireStorage<CriticalSectionRawMutex, Driver<'static>> = WireStorage::new();

@@ -9,6 +9,7 @@
 #include "doomstat.h"
 #include "d_event.h"
 #include "d_main.h"
+#include "d_loop.h"
 #include "g_game.h"
 #include "hu_stuff.h"
 #include "i_sound.h"
@@ -39,10 +40,18 @@ extern void km_sleep(uint32_t ms);
 extern void km_fail(const char *message) __attribute__((noreturn));
 extern void km_flash_read(uint32_t offset, void *dst, uint32_t count);
 extern void km_column(int x, int y, int h, const uint16_t *pixels);
+extern void km_layout(int square);
+extern void km_validate_reads(uint32_t size);
+extern uint32_t km_cycles(void);
+static int ui_window;
 extern uint32_t km_keys(void);
 extern void km_exit(void) __attribute__((noreturn));
 
+#ifdef KM_FAST_ARENA
+uint8_t km_engine_ram[32768] __attribute__((section(".doom_arena"), aligned(16)));
+#else
 uint8_t km_engine_ram[32768] __attribute__((aligned(16)));
+#endif
 __asm__(".global __frame_start\n.set __frame_start, km_engine_ram\n"
         ".global __ram_end\n.set __ram_end, km_engine_ram + 32768\n"
         ".global __frame_max\n.set __frame_max, 16000\n"
@@ -56,8 +65,49 @@ volatile struct pump_stats pump_stats;
 volatile struct nor_stats nor_stats;
 FILE *stderr, *stdout;
 
-// Every read shares one synchronous QSPI owner with display writes.
-void nor_read(uint32_t at, void *dst, uint32_t n) { km_flash_read(at, dst, n); }
+// Read-only game data: a small four-way cache retains short record reads
+// between frames. It never participates in service-mode NOR writes.
+#ifndef KM_CACHE_KIB
+#define KM_CACHE_KIB 8
+#endif
+#if KM_CACHE_KIB
+#define READ_LINE 16u
+#define READ_WAYS 4u
+#define READ_SETS (KM_CACHE_KIB * 1024u / (READ_LINE * READ_WAYS))
+static uint8_t read_data[READ_SETS][READ_WAYS][READ_LINE];
+static uint32_t read_tag[READ_SETS][READ_WAYS];
+static uint8_t read_mru[READ_SETS];
+static void read_cache_reset(void) {
+    memset(read_tag,0xff,sizeof(read_tag));memset(read_mru,0,sizeof(read_mru));
+}
+void nor_read(uint32_t at, void *dst, uint32_t n) {
+    if (at>0x400000u || n>0x400000u-at) km_fail("NOR read out of range");
+    // Large columns/flats stream directly; do not overfetch or evict records.
+    if (n > READ_LINE) { km_flash_read(at,dst,n); return; }
+    uint8_t *out = dst;
+    while (n) {
+        uint32_t base = at & ~(READ_LINE-1u), line = base / READ_LINE;
+        unsigned set = line % READ_SETS, way;
+        for (way=0; way<READ_WAYS; way++) if (read_tag[set][way]==base) break;
+        if (way==READ_WAYS) {
+            // Round-robin replacement with a recent-hit hint; bounded lookup.
+            way = (read_mru[set]+1) % READ_WAYS;
+            uint32_t end = img.size ? img.size : 0x400000u;
+            uint32_t count = end-base < READ_LINE ? end-base : READ_LINE;
+            km_flash_read(base,read_data[set][way],count);
+            read_tag[set][way]=base;
+        }
+        read_mru[set]=way;
+        unsigned offset=at-base, count=READ_LINE-offset;
+        if (count>n) count=n;
+        memcpy(out,read_data[set][way]+offset,count);
+        at+=count;out+=count;n-=count;
+    }
+}
+#else
+static void read_cache_reset(void) {}
+void nor_read(uint32_t at, void *dst, uint32_t n) { km_flash_read(at,dst,n); }
+#endif
 int nor_read_async(uint32_t at, void *dst, uint32_t n, int prio) {
     (void)prio; nor_read(at, dst, n); return 1;
 }
@@ -120,15 +170,24 @@ int img_init(void) {
 int dmc_demo_open(const char *name,uint32_t *size) { (void)name;(void)size;return -1; }
 void dmc_demo_read(uint32_t at,void *dst,uint32_t n) { (void)at;(void)dst;(void)n;km_fail("No external demo"); }
 
-// Synchronous LCD pump, retaining the engine's 320x240 column layout.
+// Synchronous column pump; square mode maps the 320-wide UI separately.
 static int px,py,ph,reps;
+static void emit_column(int x, int y, int h, const uint16_t *pixels) {
+#ifdef KM_SQUARE_VIEW
+    if (ui_window) {
+        if (x % 4 == 3) return;
+        x -= x / 4;
+    }
+#endif
+    km_column(x,y,h,pixels);
+}
 static uint16_t column[240];
-void lcd_begin(int x0,int y0,int x1,int y1) { (void)x1;px=x0;py=y0;ph=y1-y0+1; }
+void lcd_begin(int x0,int y0,int x1,int y1) { (void)x1;px=x0;py=y0;ph=y1-y0+1;ui_window=1; }
 static int cy;
 void lcd_push(uint16_t c) {
     if(ph<=0 || ph>240) km_fail("Bad LCD window");
     column[cy++]=c;
-    if(cy==ph) { km_column(px++,py,ph,column);cy=0; }
+    if(cy==ph) { emit_column(px++,py,ph,column);cy=0; }
 }
 void lcd_push_n(const uint16_t *p,uint32_t n) { while(n--) lcd_push(*p++); }
 void lcd_end(void) { if(cy) km_fail("Partial LCD column"); }
@@ -136,12 +195,12 @@ void lcd_fill(int x0,int y0,int x1,int y1,uint16_t c) {
     lcd_begin(x0,y0,x1,y1); for(int x=x0;x<=x1;x++) for(int y=y0;y<=y1;y++) lcd_push(c); lcd_end();
 }
 void pump_begin(int x0,int x1,int y0,int y1,int flags) {
-    lcd_begin(x0,y0,x1,y1); reps=(flags&PUMP_DOUBLE)?2:1;
+    lcd_begin(x0,y0,x1,y1); reps=(flags&PUMP_DOUBLE)?2:1;ui_window=!!(flags&PUMP_UI);
 }
 void pump_submit(const uint8_t *p,int ncols) {
     for(int x=0;x<ncols;x++) {
         for(int y=0;y<ph;y++) column[y]=pump_lut[p[x*ph+y]];
-        for(int r=0;r<reps;r++) km_column(px++,py,ph,column);
+        for(int r=0;r<reps;r++) emit_column(px++,py,ph,column);
     }
 }
 void pump_sync(int max) { (void)max; }
@@ -231,7 +290,17 @@ uint32_t plat_buttons(void) { return 0; }
 int plat_event(void) { return -1; }
 
 void km_doom_init(void) {
+    // The SRAMH arena is NOLOAD, separate from cortex-m-rt's ordinary BSS.
+    memset(km_engine_ram,0,sizeof(km_engine_ram));
+    read_cache_reset();
+#ifdef KM_SQUARE_VIEW
+    km_layout(1);
+#else
+    km_layout(0);
+#endif
     if(img_init()) km_fail("Upload matching E1M1 game data");
+    km_validate_reads(img.size);
+    read_cache_reset();
     rc_place(km_engine_ram+16000);flat_place(NULL);flat_set_slots(0);
     dmc_set.always_run=1;
     V_Init();M_Init();R_Init();P_Init();S_Init(0);D_CheckNetGame();HU_Init();ST_Init();
@@ -241,9 +310,21 @@ void km_doom_init(void) {
     V_RestoreBuffer();R_ExecuteSetViewSize();D_StartGameLoop();D_ResetTics();
 }
 void D_Display(void);
+static uint32_t simulation_cycles;
 void km_doom_step(void) {
-    I_StartFrame();TryRunTics();S_UpdateSounds(players[consoleplayer].mo);D_Display();
+    uint32_t start=km_cycles();
+    I_StartFrame();TryRunTics();
+    simulation_cycles=km_cycles()-start;
+    S_UpdateSounds(players[consoleplayer].mo);D_Display();
+}
+void km_doom_state(uint32_t *state) {
+    player_t *p=&players[consoleplayer];
+    state[0]=gametic;state[1]=p->mo ? p->mo->x : 0;state[2]=p->mo ? p->mo->y : 0;
+    state[3]=p->mo ? p->mo->angle : 0;state[4]=km_keys();
+    state[5]=(int32_t)p->cmd.forwardmove;state[6]=(int32_t)p->cmd.angleturn;
+    state[7]=(menuactive ? 1u : 0u)|(paused ? 2u : 0u);state[8]=simulation_cycles;
 }
 int km_doom_menu(void) { return menuactive || messageToPrint; }
+int km_doom_width(void) { return scaledviewwidth; }
 // This port has no wipe animation; invalidating this state forces a full HUD redraw.
 void km_doom_redraw(void) { wipegamestate = (gamestate_t)-1; }

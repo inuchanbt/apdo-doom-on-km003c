@@ -72,6 +72,14 @@ class ControllerHttpTests(unittest.TestCase):
         self.assertEqual(self.request("/api/keys", {"buttons": 0})[0], 200)
         self.assertEqual(self.bridge.inputs, [2, 0])
 
+    def test_pacing_accepts_only_boolean_modes_without_sending_keys(self):
+        for enabled in [True, False]:
+            self.assertEqual(self.request('/api/pacing', {'enabled': enabled})[0], 200)
+        for enabled in [0, 1, 'true', None]:
+            self.assertEqual(self.request('/api/pacing', {'enabled': enabled})[0], 400)
+        self.assertEqual(self.bridge.display, [('pacing', 1), ('pacing', 0)])
+        self.assertEqual(self.bridge.inputs, [])
+
     def test_other_origins_and_sessions_cannot_send_input(self):
         self.assertEqual(self.request("/api/keys", {"buttons": 1}, {"Origin": "https://example.com"})[0], 403)
         self.assertEqual(self.request("/api/keys", {"buttons": 1}, {"X-APDO-Token": ""})[0], 403)

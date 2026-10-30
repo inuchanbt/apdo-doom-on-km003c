@@ -62,6 +62,8 @@ class Bridge:
         self.received = 0.0
         self.history.clear()
         self.screen_error = ""
+        self.pacing_info = None
+        self.pacing_error = ""
         self.display_info = None
         self.display_error = ""
         self.screen_info = None
@@ -159,6 +161,10 @@ class Bridge:
             # A reader from an old helper must never overwrite the new session.
             if self.process is not process or not isinstance(reply, dict):
                 return
+            if "pacing" in reply or "pacing_error" in reply:
+                self.pacing_info = reply.get("pacing")
+                self.pacing_error = str(reply.get("pacing_error", ""))
+                return
             if "display" in reply or "display_error" in reply:
                 if "display" in reply:
                     self.display_info = reply["display"]
@@ -212,6 +218,7 @@ class Bridge:
             return dict(self.reply, connected=self.connected_locked(), error=self.error,
                         connection_id=self.connection_id, recent_inputs=list(self.history),
                         screen=self.screen_info, screen_error=self.screen_error,
+                        pacing=self.pacing_info, pacing_error=self.pacing_error,
                         preview_enabled=self.preview_enabled, display=self.display_info,
                         display_error=self.display_error, render_fps=self.render_fps)
 
@@ -299,6 +306,11 @@ def handler_for(bridge):
                     if type(data.get("enabled")) is not bool:
                         raise ValueError()
                     ok = bridge.set_preview(data["enabled"])
+                    return self.respond(200 if ok else 409, {"ok": ok})
+                if self.path == "/api/pacing":
+                    if type(data.get("enabled")) is not bool:
+                        raise ValueError()
+                    ok = bridge.set_display("pacing", int(data["enabled"]))
                     return self.respond(200 if ok else 409, {"ok": ok})
                 if self.path == "/api/display":
                     setting, value = data.get("setting"), data.get("value")
