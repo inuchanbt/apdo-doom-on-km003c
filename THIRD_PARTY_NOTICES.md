@@ -1,3 +1,17 @@
+# Independent branch license scope
+
+The active build on `codex/independent-firmware` is described in
+[INDEPENDENT.md](docs/INDEPENDENT.md). It does not include the unlicensed board
+firmware or generated PAC. The MIT clock/interrupt/timer subset retains its
+[upstream license](independent/hardware/LICENSE-MIT). New board/wire/host code is
+MIT unless marked otherwise. Linking the GPL engine creates a combined firmware
+subject to the applicable GPL terms; this is not an all-MIT firmware.
+
+The following notices describe both retained engine/media assets and historical
+v8 inputs. References to the old board host's embedded recovery data apply to
+the legacy build, not `independent/host`, which loads qualified data at runtime.
+No release completeness claim is made before the independent release audit.
+
 # Third-party notices and license scope
 
 The repository's existing LICENSE is MIT, copyright 2026 @USB_PD_EPR_240W. It applies to original project documentation, orchestration scripts, and original Rust additions where no other license is stated. It does not relicense upstream material or GPL-covered engine integration.

@@ -4,10 +4,10 @@ use anyhow::{Context, Result, ensure};
 use clap::{Parser, Subcommand};
 use km003c_backup::*;
 use km003c_lib::{
-    DeviceConfig, DeviceSelector, KM003C, auth,
+    DeviceConfig, DeviceSelector, KM003C,
     firmware::{FirmwareUsbMode, find_firmware_device},
 };
-use std::{fs, path::PathBuf, time::Duration};
+use std::{fs, path::PathBuf};
 
 #[derive(Parser)]
 #[command(about = "Read-only first backup and offline verification; no private baseline required")]
@@ -43,60 +43,6 @@ enum Command {
     },
 }
 
-struct Reader {
-    device: KM003C,
-    dfu: bool,
-}
-impl ReadMemory for Reader {
-    async fn read(&mut self, address: u32, size: usize) -> Result<Vec<u8>> {
-        let mut output = Vec::with_capacity(size);
-        while output.len() < size {
-            let count = (size - output.len()).min(4096);
-            let at = address
-                .checked_add(output.len().try_into()?)
-                .context("read range overflow")?;
-            let data = if self.dfu {
-                // Pinned library builds/authenticates requests and decrypts replies.
-                self.device
-                    .send_raw(&auth::build_memory_read_packet(at, count as u32, 1))
-                    .await?;
-                let reply = tokio::time::timeout(Duration::from_secs(5), self.device.receive_raw())
-                    .await??;
-                ensure!(
-                    reply.len() == 20
-                        && auth::parse_memory_read_confirmation(&reply[4..])
-                            == Some((at, count as u32)),
-                    "invalid DFU confirmation at {at:#x}"
-                );
-                let aligned = count.div_ceil(16) * 16;
-                let mut encrypted = Vec::new();
-                while encrypted.len() < aligned {
-                    let transfer =
-                        tokio::time::timeout(Duration::from_secs(5), self.device.receive_raw())
-                            .await??;
-                    ensure!(
-                        !transfer.is_empty() && transfer.len() <= aligned - encrypted.len(),
-                        "invalid DFU transfer length"
-                    );
-                    encrypted.extend(transfer);
-                }
-                ensure!(encrypted.len() == aligned, "unexpected DFU transfer size");
-                let plain = auth::decrypt_memory_read_response(&encrypted)
-                    .context("invalid DFU payload")?;
-                ensure!(plain.len() >= count, "short DFU payload");
-                plain[..count].to_vec()
-            } else {
-                self.device.read_memory_block(at, count as u32).await?
-            };
-            ensure!(data.len() == count, "short memory read at {at:#x}");
-            output.extend(data);
-            if output.len() % 0x40000 == 0 || output.len() == size {
-                println!("Read {address:#010x}: {}/{}", output.len(), size);
-            }
-        }
-        Ok(output)
-    }
-}
 fn port(selector: DeviceSelector) -> Result<UsbPort> {
     if let DeviceSelector::PortPath { bus_id, port_chain } = selector {
         ensure!(!port_chain.is_empty(), "physical USB port unavailable");

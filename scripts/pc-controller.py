@@ -333,7 +333,7 @@ def handler_for(bridge):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cli", type=Path, default=ROOT / "vendor/km003c-firmware/target/release/km003c-host-cli.exe")
+    parser.add_argument("--cli", type=Path, default=ROOT / "independent/target/release/apdo-host.exe")
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--session-file", type=Path)

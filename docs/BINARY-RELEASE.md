@@ -1,3 +1,19 @@
+# Independent branch release status
+
+On `codex/independent-firmware`, the active application no longer includes the
+unlicensed board firmware or generated PAC. See [INDEPENDENT.md](INDEPENDENT.md)
+for the explicit MIT HAL subset, new board code and recorded validation.
+This removes those dependencies from the new build; it does not relicense the
+legacy files or retroactively clear redistribution of the v8 binary.
+
+No prebuilt firmware is published by this branch work. Before a later public
+release, qualify the new NOR installation/restore path on hardware, review the
+complete pinned dependency notices, assemble corresponding engine/firmware/build
+source, and verify that no private recovery/device data enters any release asset.
+The new host reads private recovery data at runtime instead of embedding it.
+
+The following v8 review is retained as historical context.
+
 # Prebuilt firmware: status and requirements
 
 **Status on 2026-10-31: no firmware binary is published.** Preparing a valid

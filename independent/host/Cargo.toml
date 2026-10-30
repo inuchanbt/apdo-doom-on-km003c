@@ -1,0 +1,15 @@
+[package]
+name = "apdo-host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+apdo-protocol = {path = "../protocol"}
+anyhow = "1.0.104"
+nusb = "0.2.9"
+serde_json = "1.0.154"
+km003c-backup = { version = "0.1.0", path = "../../bootstrap" }
+km003c-lib = { git = "https://github.com/okhsunrog/km003c-rs", rev = "efed50556d7376914bffd510e012aaa98081936f", version = "0.4.0" }
+aes = "0.9.3"
+crc32fast = "1.5.3"
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "time", "macros"] }

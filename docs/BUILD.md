@@ -1,72 +1,14 @@
-# Building APDO DOOM
+# Building the independent application
 
-The recorded build used Windows, PowerShell, Python 3.12.14, Rust 1.99.1 (Windows GNU), and LLVM-MinGW's 20261020 UCRT x86_64 package with Clang 23.1.4. Other environments have not been verified.
+This branch targets Windows/PowerShell, Rust 1.99.1 Windows GNU, ARM target
+`thumbv7em-none-eabihf`, Python 3.10+, Git and LLVM-MinGW (recorded Clang 23.1.4).
+Install those tools as described in the archived [toolchain setup](legacy/BUILD.md#2-configure-the-toolchains).
+Set `APDO_LLVM_BIN` to the LLVM `bin` directory if it is outside `tools/`.
 
-## 1. Reconstruct the source
-
-```powershell
-python scripts/prepare-sources.py --sources-only
-```
-
-The script fetches the exact revisions in `SOURCE_LOCK.json`, applies `patches/`, copies added Rust files from `overlays/`, and prepares the pinned doomgeneric source used by the converter. It refuses a different HEAD or conflicting edits. It does not reset an existing checkout or access USB.
-
-To verify an existing prepared source tree without changing files:
-
-```powershell
-python scripts/prepare-sources.py --check --sources-only
-```
-
-Keep local changes in the versioned overlays and patches as well as the working `vendor/` checkout. `vendor/` is a build workspace, not the source of record for this repository.
-
-## 2. Configure the toolchains
-
-Install Git, Python 3.10 or newer, and [Rustup](https://rustup.rs/). Install the Windows GNU Rust toolchain and ARM target:
-
-```powershell
-rustup toolchain install stable-x86_64-pc-windows-gnu --component rustfmt --component clippy
-rustup target add --toolchain stable-x86_64-pc-windows-gnu thumbv7em-none-eabihf
-```
-
-Extract [LLVM-MinGW](https://github.com/mstorsjo/llvm-mingw/releases) to `tools/llvm-mingw-20261020-ucrt-x86_64/`, or set `APDO_LLVM_BIN` to its `bin` directory. The build needs Clang, `llvm-ar`, `llvm-objcopy`, `llvm-nm`, and `llvm-dlltool`. The converter patch uses Clang's evaluated AST when Windows LLVM-MinGW does not provide `llvm-dwarfdump`.
-
-```powershell
-. .\scripts\env.ps1
-```
-
-This changes the current shell environment only. If `tools/cargo/` and `tools/rustup/` exist, it uses those local installations; otherwise it uses the configured Rustup/Cargo homes. The GNU host linker is Rust's bundled GCC, and import libraries are handled by LLVM's dlltool.
-
-## 3. Acquire and prepare private recovery material
-
-For an untouched stock meter, start with [FIRST-BACKUP.md](FIRST-BACKUP.md). Its independent read-only tool builds without a previous backup or the board checkout:
-
-```powershell
-.\scripts\build-backup.ps1
-```
-
-That guide covers stock double reads, original application CRC validation, manual DFU entry and matching loader/application reads, offline verification, and creation of your restore package. Initial acquisition is restricted to HW2.3 / stock 2.0.7. Acquisition and baseline import were verified on the original meter after restoring stock; a second, previously untouched unit has not been tested. Do not substitute a dummy or another meter's loader to bypass this step.
-
-After acquisition and DFU verification, configure your own material as described there:
-
-```powershell
-New-Item -ItemType Directory -Force local
-Copy-Item local.example.json local/device.json
-```
-
-Edit `local/device.json` with the verified device serial, stock and external-backup paths, a generated DOOM package path, and the Python executable if needed. Paths are relative to the repository unless absolute. This file and `local/` are ignored by Git.
-
-The host loader allowlist needs `loader-00000004-00003fff.bin`, its `.sha256`, and its `.verified.json` recording two matching reads. Importing a new baseline additionally requires the bootstrap manifest and successful DFU evidence. The bootstrap verifier must already be built. Full recovery also needs the stock application/package and the full original external NOR backup described in [RECOVERY.md](RECOVERY.md). The last 1 MiB is acquired through the custom service after the first application flash, before writing game data; see [FIRST-BACKUP.md, step 5](FIRST-BACKUP.md#5-complete-the-original-nor-backup-before-installing-game-data).
+## Prepare public sources and game data
 
 ```powershell
 python scripts/prepare-sources.py
-```
-
-The script verifies and copies the private loader baseline into the ignored board checkout. It never distributes that binary. `env.ps1` passes the configured serial as `APDO_DEVICE_SERIAL`; the stock-to-loader path refuses to proceed if no verified serial was configured at build time. The exact loader-byte allowlist and HW2.3 checks remain in place.
-
-## 4. Generate Freedoom data
-
-From the repository root, load the environment and change to the converter directory:
-
-```powershell
 . .\scripts\env.ps1
 $env:HOSTCC = 'clang'
 Push-Location vendor/dmc100-doom
@@ -74,49 +16,80 @@ python -I tools/conv/__main__.py --packs E1M1 all
 Pop-Location
 ```
 
-The converter downloads the official Freedoom 0.13.0 release into its ignored `dl/` cache and verifies its pinned SHA-256. To use a cached release explicitly, add `--zip dl/freedoom-0.13.0.zip`. It generates `gen/` and `build/packs/E1M1/DOOM.DAT`. The tested pack is 2,802,000 bytes; its SHA-256 is recorded in `SOURCE_LOCK.json`.
+Preparation fetches only pinned DMC100-Doom/doomgeneric sources, applies the DMC
+patch and never reads private recovery data. The converter verifies its official
+Freedoom 0.13.0 download. The expected 2,802,000-byte E1M1 pack SHA-256 is in
+`SOURCE_LOCK.json`. `python scripts/prepare-sources.py --check` checks existing sources.
 
-## 5. Build
-
-Building a container for your meter does not settle permission to redistribute the upstream board code. Prebuilt firmware publication is currently pending [redistribution terms and corresponding-source preparation](BINARY-RELEASE.md). Do not upload the locally built host CLI: it embeds the private loader baseline and can contain your configured serial.
+## Build without a backup or a connected meter
 
 ```powershell
 .\scripts\build-host.ps1
-.\scripts\build-firmware.ps1 -Python python -Name km003c-doom
+.\scripts\build-firmware.ps1 -Python python -Name apdo-independent
+.\scripts\build-backup.ps1
 ```
 
-The firmware script compiles the C engine, links the `doom` Rust feature for `thumbv7em-none-eabihf`, converts the ELF to a raw application image, and validates/packages it as `artifacts/km003c-doom.mencrypt`. It refuses to overwrite an output with the same name. A default timestamped name can also be used. **Neither build command flashes USB hardware.**
+The firmware script builds the square C engine and `independent/firmware`, then
+uses the independent host's offline packager. Outputs are under ignored
+`artifacts/`. No command above opens USB. No stock application, loader, serial,
+calibration data, board-firmware checkout or generated PAC is linked.
 
-v8 defaults to `-O2`, a 32 KiB SRAMH engine arena and an 8 KiB short-record data cache. Standard NOR game reads use 16 MHz only after a complete comparison against original-speed reads on each game startup. Use `-SafeNor` to keep 8 MHz. Add `-Square` for the 240×200 world + 40-row HUD layout and rebuild the host for 120×120 captures. The normal build keeps the 240×180 layout. See [performance and build comparisons](PERFORMANCE.md).
+The application is confined to `0x4000 .. 0x73ffe`; the 64-byte loader metadata is
+at `0x4420`. SRAMH contains the 32 KiB engine arena. The native loader and ICG are
+not part of the image. Programming is a separate, qualified operation.
 
-The application begins at `0x4000`. The DOOM feature starts USB and the game task while leaving measurement/PD tasks inactive. The engine reads the first 3 MiB of external NOR; the final 1 MiB stays protected from game-service writes.
-
-Create the original application's restore package with the offline `package-installed` command in FIRST-BACKUP.md **before** the first custom application write. Continue that guide for the full NOR acquisition and game installation order.
-
-## Optional checks
-
-Use the source-preparation check above, then the upstream Rust checks:
+## Checks
 
 ```powershell
 . .\scripts\env.ps1
-Push-Location vendor/km003c-firmware
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --locked
-Push-Location firmware
-cargo fmt -- --check
-cargo clippy --release --locked --features doom -- -D warnings
-Pop-Location
-Pop-Location
+cargo test --manifest-path independent/Cargo.toml -p apdo-protocol -p apdo-host
+cargo test --manifest-path independent/Cargo.toml -p apdo-hardware --features time
+cargo fmt --manifest-path independent/Cargo.toml --all -- --check
+python scripts/test-prepare-sources.py
+python scripts/build-engine.py --host-test --square
+python scripts/test-engine.py
+python scripts/test-input-cadence.py
 ```
 
-To exercise the C engine without USB:
+The hardware subset's register-model tests check clock transitions, timeout
+handling, inherited routes and timer wrap/deadline races. Wire tests cover framing
+bounds and the protected NOR tail. Packaging tests validate vectors and exact
+restoration of committed application bytes. Engine tests run the real Freedoom
+pack, including input cadence and HUD redraw.
+
+## Local controller
+
+After the independent application has been qualified on the meter:
 
 ```powershell
-python scripts/build-engine.py --host-test
-python scripts/test-engine.py
+python scripts/pc-controller.py --port 50594
 ```
 
-The optional `scripts/render-frame.py` converts a test frame to PNG and requires Pillow. The saved `docs/images/doom-host-preview.png` comes from this host harness. The README now shows the Web controller with a live device capture composited into the supplied enclosure image.
+Open the printed `http://127.0.0.1:50594/` URL in a browser. Keep the server running;
+do not open the HTML with `file://`. The helper is `independent/target/release/apdo-host.exe`.
+Its JSON interface keeps the existing Web keyboard/display/preview controls.
 
-The independent backup-tool tests and baseline-import tests are listed in [FIRST-BACKUP.md](FIRST-BACKUP.md#offline-development-checks). They require no device or private recovery files.
+## Qualified native-loader operations
+
+Keep the meter on the physical USB port recorded by the first-backup tool.
+The following operations read `STOCK_BACKUP` at runtime and require successful
+`verify_qualified` evidence from the independent backup utility. They do not embed
+that evidence in the executable.
+
+```powershell
+# Manually enter native DFU (Exit held during HID insertion).
+independent/target/release/apdo-host.exe flash STOCK_BACKUP IMAGE.mencrypt NEW_EVIDENCE_DIR
+independent/target/release/apdo-host.exe start STOCK_BACKUP IMAGE.mencrypt
+```
+
+Flash compares the loader with the qualified baseline before programming, uses
+the pinned km003c-lib updater, then checks every application byte and unchanged
+loader bytes. It never retries a failed program operation or starts an unverified
+application. Use a new evidence directory each time. `package` / `package-installed`
+are offline and require input/output paths. The latter reproduces an original
+installed application's size/CRC fields exactly.
+
+The complete development sequence, including double acquisition of the original
+NOR, protected-tail checks, game installation and ordered stock restoration, is
+in [FIRST-BACKUP.md](FIRST-BACKUP.md). Storage programming has model tests; the
+independent full install/restore sequence still needs native hardware qualification.

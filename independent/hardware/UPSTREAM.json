@@ -1,0 +1,21 @@
+{
+  "repository": "https://github.com/okhsunrog/hc32f460-embassy-rs",
+  "revision": "23e09a053ddf5284d28c06407b9172adf9c48a34",
+  "selected_license": "MIT",
+  "upstream_files": {
+    "clock_decode.rs": "7d6fabae2fb0fbc3d6ae208a7f44d553f32030ea8413e8f46a8de7b9fc060563",
+    "clock_decode/tests.rs": "2a6f1b05f5127f85c626b95d413e255c61e1dfb4a77aebbedda1327d2048b541",
+    "clocks.rs": "3bf7420e41891e56cb5805a021dd7cd765a6c676084d6af4b1cdc8820c9cabaf",
+    "clocks/startup.rs": "63498ea8640db06e06906b9d3fe9c3ae4631af5726b5d6049b33c60935c8fdcb",
+    "clocks/startup/tests.rs": "c22ee7f95affdcc46cab1a5b1b3ea5a30452d21a21e91c4480b8afad2c69d43c",
+    "intc.rs": "935a75270390486982248af0ea72f53ceaf31e3092facce20319a3a39a90e786",
+    "intc/tests.rs": "fcb45e699fe886d275a43648391b4919422e0d6de6b237ba8d10e5cca6228638",
+    "time_driver_tmra.rs": "ff103ee3b50dbf9b0c5d88bb92c41e0360907a4dbb08f39d35b2132764ab6dcd",
+    "time_driver_tmra/tests.rs": "3fc32de9e810be658158a67d4c3fab5be676803fc663363e1ed64b4c039cb0c4"
+  },
+  "adaptations": [
+    "PAC TimerA token removed; board owns TimerA directly",
+    "module/feature integration and Rust formatting",
+    "no SVD/PAC or other HAL modules copied"
+  ]
+}
