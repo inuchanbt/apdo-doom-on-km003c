@@ -150,12 +150,15 @@ index d5e2736..b0dd8c2 100644
  pub use km003c_interface as interface;
  pub use km003c_lib::DeviceSelector;
 diff --git a/crates/km003c-host-lib/src/maintenance.rs b/crates/km003c-host-lib/src/maintenance.rs
-index 84e31f2..81295da 100644
+index 84e31f2..fde0847 100644
 --- a/crates/km003c-host-lib/src/maintenance.rs
 +++ b/crates/km003c-host-lib/src/maintenance.rs
-@@ -8,7 +8,9 @@ use km003c_lib::{
+@@ -6,9 +6,11 @@ use km003c_lib::{
+     firmware::{FirmwareImage, FirmwareUsbMode, InstalledFirmwareInfo, find_firmware_device},
+ };
  use sha2::{Digest, Sha256};
- use std::{io::Write, path::Path, time::Duration};
+-use std::{io::Write, path::Path, time::Duration};
++use std::{future::Future, io::Write, path::Path, time::Duration};
  
 -const KNOWN_LOADER: &[u8] = include_bytes!("../../../fw/bootloader_hw2.1_00000004-00003fff.bin");
 +// Private baseline: read twice in APP and twice in native DFU from the tested unit.
@@ -173,7 +176,7 @@ index 84e31f2..81295da 100644
          "unsupported device: {info:?}"
      );
      Ok((d, stable))
-@@ -80,7 +82,11 @@ pub async fn enter(selector: DeviceSelector) -> Result<DeviceSelector> {
+@@ -80,10 +82,42 @@ pub async fn enter(selector: DeviceSelector) -> Result<DeviceSelector> {
      if found.mode != FirmwareUsbMode::Dfu {
          // Only our RPC app is rebooted automatically. Stock protocol operations
          // remain in km003c-lib and are not guessed for unknown USB interfaces.
@@ -184,9 +187,40 @@ index 84e31f2..81295da 100644
 +            Client::connect(stable.clone()).await?.loader().await?;
 +        }
      }
++    // USB enumeration can precede WinUSB readiness. Probe identity on this port
++    // before returning; only read-only probes are retried, never a flash transfer.
++    wait_for_loader(
++        || async {
++            let (device, _) = open(stable.clone()).await?;
++            drop(device);
++            Ok(())
++        },
++        Duration::from_secs(8),
++    )
++    .await?;
      Ok(stable)
  }
-@@ -116,7 +122,7 @@ pub async fn verify(selector: DeviceSelector, image: &FirmwareImage) -> Result<(
++
++async fn wait_for_loader<F, Fut>(mut probe: F, budget: Duration) -> Result<()>
++where
++    F: FnMut() -> Fut,
++    Fut: Future<Output = Result<()>>,
++{
++    tokio::time::timeout(budget, async {
++        loop {
++            if probe().await.is_ok() {
++                return;
++            }
++            tokio::time::sleep(Duration::from_millis(200)).await;
++        }
++    })
++    .await
++    .context("native DFU did not become ready; reconnect HID with Exit held before retrying")
++}
+ fn installed_info(bytes: &[u8]) -> Result<InstalledFirmwareInfo> {
+     ensure!(bytes.len() >= 0x460, "truncated application");
+     let mut info = auth::DeviceInfo::default();
+@@ -116,7 +150,7 @@ pub async fn verify(selector: DeviceSelector, image: &FirmwareImage) -> Result<(
      let (mut d, _) = open(selector).await?;
      ensure!(
          read(&mut d, 4, KNOWN_LOADER.len()).await? == KNOWN_LOADER,
@@ -195,7 +229,7 @@ index 84e31f2..81295da 100644
      );
      ensure!(
          read(&mut d, 0x4000, image.data().len()).await? == image.installed_data()?,
-@@ -138,11 +144,11 @@ pub async fn flash(
+@@ -138,11 +172,11 @@ pub async fn flash(
      let before = read(&mut d, 4, KNOWN_LOADER.len()).await?;
      ensure!(
          before == KNOWN_LOADER,
@@ -209,7 +243,7 @@ index 84e31f2..81295da 100644
      d.update_firmware(image, |p| {
          eprintln!("{:?}: {}/{}", p.stage, p.bytes_written, p.total_bytes)
      })
-@@ -161,11 +167,19 @@ pub async fn flash(
+@@ -161,11 +195,19 @@ pub async fn flash(
  }
  pub async fn start(selector: DeviceSelector) -> Result<()> {
      let (mut d, stable) = open(selector).await?;
@@ -232,6 +266,62 @@ index 84e31f2..81295da 100644
  }
  
  pub async fn diagnostics(selector: DeviceSelector, output: &Path) -> Result<()> {
+@@ -204,3 +246,55 @@ pub fn parse_image(bytes: &[u8]) -> Result<FirmwareImage> {
+     image.validate_for_update()?;
+     Ok(image)
+ }
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use std::{cell::Cell, future};
++
++    #[tokio::test]
++    async fn loader_ready_probe_stops_at_first_success() {
++        let calls = Cell::new(0);
++        wait_for_loader(
++            || {
++                calls.set(calls.get() + 1);
++                future::ready(Ok(()))
++            },
++            Duration::from_secs(1),
++        )
++        .await
++        .unwrap();
++        assert_eq!(calls.get(), 1);
++    }
++
++    #[tokio::test]
++    async fn loader_ready_probe_retries_transient_open_failures() {
++        let calls = Cell::new(0);
++        wait_for_loader(
++            || {
++                calls.set(calls.get() + 1);
++                future::ready(if calls.get() < 3 {
++                    Err(anyhow::anyhow!("driver not ready"))
++                } else {
++                    Ok(())
++                })
++            },
++            Duration::from_secs(2),
++        )
++        .await
++        .unwrap();
++        assert_eq!(calls.get(), 3);
++    }
++
++    #[tokio::test]
++    async fn loader_ready_probe_cannot_exceed_deadline() {
++        let result =
++            wait_for_loader(future::pending::<Result<()>>, Duration::from_millis(10)).await;
++        assert!(
++            result
++                .unwrap_err()
++                .to_string()
++                .contains("DFU did not become ready")
++        );
++    }
++}
 diff --git a/crates/km003c-host-lib/src/package.rs b/crates/km003c-host-lib/src/package.rs
 index 2ff63df..4b00527 100644
 --- a/crates/km003c-host-lib/src/package.rs

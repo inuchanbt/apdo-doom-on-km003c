@@ -29,6 +29,8 @@ The server can start before the meter is connected. It automatically restarts th
 
 **Stop controller** ends the server and its retry loop. To resume after stopping it, run `play.ps1` again and open the newly printed URL. Use **Release all** for a temporary input pause. Open the HTTP URL in a browser; opening the HTML file directly does not start the USB bridge.
 
+If an old tab says **Failed to fetch**, compare its port with the current printed URL. A stopped server's cached page can still show an old frame. After restarting a server on the same port, reload the page to obtain its new session.
+
 Run one controller process and one active control tab at a time. Stop it before running another USB CLI command or updating firmware.
 
 ## Responsive panel
@@ -47,7 +49,7 @@ The separate `km003c/doom/display` endpoint accepts status, brightness, or absol
 
 - PC keys are combined with the physical game buttons. The long-Exit-to-loader gesture uses only the physical Exit button; holding PC fire does not trigger it.
 - Short key transitions are queued between rendered frames, including press/release pairs shorter than one frame.
-- The browser sends heartbeats. After 500 ms without browser input, the helper sends a release. The Rust bridge independently expires silent stdin after 500 ms.
+- The enabled control tab sends heartbeats. Idle tabs do not repeatedly send zero input, and focus-loss/key-up handlers release only input owned by that page. After 500 ms without browser input, the helper sends a release. The Rust bridge independently expires silent stdin after 500 ms.
 - Every nonzero USB input has a renewable 750 ms lease. The firmware releases it on expiry, even if the PC process crashes or USB disconnects. Lease validation caps it at 1,000 ms. Firmware checks occur between rendered frames.
 - The game-input endpoint is separate from the existing storage/recovery commands. Starting the controller does not write flash or enter the loader.
 

@@ -33,7 +33,11 @@ async function sendPending() {
   finally { sending = false; }
 }
 function queue() { const value=mask(); if (pending.at(-1)!==value) pending.push(value); paint(); void sendPending(); }
-function releaseAll() { pressed.clear(); armed=false; pending=[]; queue(); }
+function releaseAll() {
+  const ownedInput=armed || pressed.size>0 || pending.some(value=>value!==0);
+  pressed.clear(); armed=false; pending=[];
+  if(ownedInput) queue(); else paint();
+}
 function paintMockup() {
   const mockup=document.querySelector(".device-mockup");
   // The LCD rotates inside the meter. To show an upright game, the enclosure
@@ -93,7 +97,7 @@ window.addEventListener("keydown",event=>{
   if (!pressed.has(event.code)) { pressed.set(event.code,keyMap[event.code]); queue(); }
 });
 window.addEventListener("keyup",event=>{
-  if (!(event.code in keyMap)) return;
+  if (!(event.code in keyMap) || !pressed.has(event.code)) return;
   if (armed) event.preventDefault();
   pressed.delete(event.code); queue();
 });
@@ -106,7 +110,7 @@ document.querySelectorAll("[data-mask]").forEach(button=>{
     event.preventDefault(); armed=true; button.setPointerCapture(event.pointerId);
     pressed.set("pointer"+event.pointerId,Number(button.dataset.mask)); queue();
   });
-  const release=event=>{pressed.delete("pointer"+event.pointerId);queue();};
+  const release=event=>{if(pressed.delete("pointer"+event.pointerId)) queue();};
   button.addEventListener("pointerup",release);button.addEventListener("pointercancel",release);
   button.addEventListener("lostpointercapture",release);
 });
@@ -149,6 +153,6 @@ async function status() {
   } catch { usbConnected=false; $("enable").disabled=true; $("connection").textContent="Controller offline"; $("dot").classList.remove("connected"); paintLcd(false); releaseAll(); }
 }
 fetch("/api/session").then(response=>response.json()).then(session=>{token=session.token;queue();void status();}).catch(error=>{$("error").textContent=error.message;});
-setInterval(()=>{if(!stopped) queue();},100);
+setInterval(()=>{if(!stopped && armed) queue();},100);
 setInterval(status,500);
 paint();

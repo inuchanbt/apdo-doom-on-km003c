@@ -2,7 +2,7 @@
 
 The original HW2.3 meter's full stock restoration has been performed successfully. This proves the recorded procedure for that unit; it does not guarantee recovery for every device or failure mode.
 
-For another untouched HW2.3 / stock 2.0.7 unit, start with [FIRST-BACKUP.md](FIRST-BACKUP.md). The independent tool builds without existing backups and verifies stock/DFU reads before importing that unit's loader. Do not use the original unit's dumps. The new bootstrap sequence is covered by offline tests and still needs an end-to-end stock-device test. A successful read check alone is not proof of a successful flash/restore.
+For another untouched HW2.3 / stock 2.0.7 unit, start with [FIRST-BACKUP.md](FIRST-BACKUP.md). The independent tool builds without existing backups and verifies stock/DFU reads before importing that unit's loader. Do not use the original unit's dumps. The bootstrap acquisition and import sequence was verified on the original meter after restoring stock; no second unit has been tested. A successful read check alone is not proof of a successful flash/restore.
 
 ## Keep the private workspace
 
@@ -29,6 +29,8 @@ The script uses `local/device.json` and the built host CLI. It enters native DFU
 
 The final 1 MiB is never erased or programmed by the game service. A protected-tail mismatch stops restoration. Each run creates new timestamped evidence directories under ignored `artifacts/`.
 
+Close the controller and let its USB helper exit before starting recovery. After a mode switch, the host waits up to eight seconds for a read-only native-loader identity check on the same physical port to succeed, including WinUSB interface readiness. Only these read probes are retried; erase/program transfers are never retried automatically. A readiness timeout stops before programming and requires checking the device state before another attempt.
+
 ## If the game does not respond
 
 Disconnect the HID cable. Hold Exit while reconnecting it, then release Exit once the native update/DFU screen appears. This entry path is independent of application USB. Run the normal restoration script from that state.
@@ -54,10 +56,12 @@ For new bootstrap acquisitions, verify the stock and native-DFU evidence without
 .\bootstrap\target\release\km003c-backup.exe verify --stock backups/my-device-stock --require-dfu
 ```
 
-This does not check a later full-NOR backup or prove a completed restoration. `game-backup` and the restoration commands validate their own full-NOR/readback evidence. For the original experiment's historical evidence layout only:
+The independent verifier does not check a later full-NOR backup or prove a completed restoration. To check the complete backup set configured in `local/device.json`:
 
 ```powershell
 python scripts/check-recovery.py
 ```
 
-This checks the saved backup hashes, matching-read records, full-NOR prefix agreement, loader snapshots, and recorded complete restoration. It expects the original experiment's local evidence layout and does not contact USB.
+For bootstrap manifests this invokes the independent offline verifier, checks full-NOR length/hash, two matching reads, stock-prefix agreement and protected-tail hash, and requires the stock restore package to exist. It does not assert that a restoration has been performed or independently parse the restore container. Device writes validate that container through the host library.
+
+For the original experiment's legacy backup layout, the checker additionally expects its recorded complete-restoration evidence. Use `--config <saved-original-config.json>` to inspect that historical set after switching the active configuration to a newer snapshot set. Neither mode contacts USB. Keep newer stock/NOR snapshots together if native settings or recordings have changed; protected-tail mismatches are a stop condition, not something to override.

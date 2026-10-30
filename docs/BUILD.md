@@ -43,7 +43,7 @@ For an untouched stock meter, start with [FIRST-BACKUP.md](FIRST-BACKUP.md). Its
 .\scripts\build-backup.ps1
 ```
 
-That guide covers stock double reads, original application CRC validation, manual DFU entry and matching loader/application reads, offline verification, and creation of your restore package. Initial acquisition is restricted to HW2.3 / stock 2.0.7; the new bootstrap workflow has not yet been tested end to end on an untouched unit. Do not substitute a dummy or another meter's loader to bypass this step.
+That guide covers stock double reads, original application CRC validation, manual DFU entry and matching loader/application reads, offline verification, and creation of your restore package. Initial acquisition is restricted to HW2.3 / stock 2.0.7. Acquisition and baseline import were verified on the original meter after restoring stock; a second, previously untouched unit has not been tested. Do not substitute a dummy or another meter's loader to bypass this step.
 
 After acquisition and DFU verification, configure your own material as described there:
 

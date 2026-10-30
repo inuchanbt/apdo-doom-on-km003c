@@ -52,4 +52,27 @@ The preview and controls use two columns from 900 CSS pixels wide; narrower wind
 
 The new `bootstrap/` tool builds separately from the board workspace and uses no private firmware include. A cold release build also passed from a separate copy containing only the bootstrap crate and its environment/build scripts, with no `local/`, `backups/`, or `vendor/`, no configured serial, and a separate target directory (cached public Cargo dependencies, offline). Bootstrap acquisition/verification tests (9) and Python baseline-import tests (7) passed using synthetic files and no USB. The board host workspace tests passed (42, including the new installed-backup packaging test), and both host workspaces passed Clippy with warnings denied. The saved original stock application was packaged offline with exact installed-byte roundtrip validation; reusing the output path was rejected.
 
-These checks do not constitute an end-to-end acquisition on an untouched stock device. No firmware was flashed and the working DOOM application was retained during this change. The original hardware evidence above predates the new bootstrap command sequence. See [FIRST-BACKUP.md](FIRST-BACKUP.md) for its staged stock/DFU/full-NOR procedure.
+The initial software-only checks on 2026-10-29 did not constitute an end-to-end stock-device acquisition. No firmware was flashed during those initial checks. The following section records the subsequent hardware verification. See [FIRST-BACKUP.md](FIRST-BACKUP.md) for the staged stock/DFU/full-NOR procedure.
+
+## Bootstrap hardware check (2026-10-30)
+
+The independent tool was subsequently tested on the original HW2.3 unit after restoring its stock 2.0.7 application and all 4 MiB of original external NOR. Full application/NOR readback and unchanged loader were verified. The owner reported normal operation of the PD functions they checked after restoration; other charging protocols and exhaustive PD conformance were not tested.
+
+- Stock acquisition read all five regions twice, checked the committed application CRC, identities, lengths and SHA-256 records, and passed offline verification. Every region also matched the earlier original backup byte for byte.
+- A restore package made from the new application backup was byte-identical to the previously verified stock restore package.
+- The tool rejected the custom RPC application as a stock source, rejected DFU qualification while still in the stock application, and refused a fresh baseline import without DFU evidence.
+- The owner manually entered native DFU with Exit held on the same USB port. The tool read the loader and complete stock application twice; both matched the stock acquisition. Offline verification with `--require-dfu` passed.
+- The real source-preparation importer accepted the qualified acquisition in a separate private workspace with no existing loader baseline, copied the exact loader, and passed its subsequent check.
+- The exact previously installed DOOM v7 image was reinstalled, with full application readback and unchanged loader verified.
+
+After the owner's stock PD checks, the NOR prefix differed from the earlier acquisition by 114 bytes in two sectors, and its protected tail had also changed. The full-NOR acquisition correctly refused the stale stock-prefix reference before any game-resource write. A fresh stock acquisition independently confirmed the changed prefix. A new stock/DFU set and matching two-read full-NOR backup were then acquired, copied into private `backups/`, and selected together in the local configuration. The original backups and previous configuration were retained. No verification flags were overridden.
+
+The same Freedoom E1M1 pack was subsequently restored and read back, with the current protected tail unchanged. The updated host completed automatic stock/RPC-to-DFU transitions and a final live application/loader verification. DOOM auto-started after the final restart, and the controller again captured a live 120×90 game frame at its existing local URL.
+
+During preparation, USB handoff briefly preceded interface availability and stopped before programming. The host now waits for read-only loader identity probes to succeed on the selected physical port, with an eight-second deadline. It never retries a flash data transfer. Three focused readiness tests passed (10 host-library tests total), as did workspace Clippy with warnings denied.
+
+The offline recovery checker now supports complete bootstrap snapshot sets and an explicit configuration path for historical evidence. Seven synthetic tests cover prefix drift, corruption/truncation, protected-tail hashes, read evidence and incomplete restoration pairs. Both the new snapshot set and a complete historical restoration record passed checks. Snapshot consistency is kept distinct from proof of a completed hardware restoration.
+
+The owner confirmed physical game controls after restoring DOOM. Their normal-browser tab still pointed to an old, stopped server port and reported `Failed to fetch`; navigating it to the active server restored the connection. Idle-tab zero-input heartbeats were also removed so an inactive page cannot repeatedly clear another page's controls. With the in-app page and Opera both open, Opera keyboard input produced accepted and applied forward, right-turn and fire masks on the meter, followed by zero remote/applied keys. A screenshot and input observations are kept with the private run evidence.
+
+Raw acquisitions, hashes, restore packages, logs and comparison records remain in ignored `artifacts/bootstrap-device-check-20261030-*/`. This validates one restored unit, not a second untouched meter or every firmware/hardware revision.

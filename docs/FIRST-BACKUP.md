@@ -2,7 +2,7 @@
 
 The independent `bootstrap/` crate builds **without a previous backup, a private loader binary, `local/device.json`, or the board firmware checkout**. Its commands are `inspect`, `stock`, `dfu-check`, and offline `verify`. It uses the exact pinned `km003c-lib` revision in `Cargo.toml` and `Cargo.lock` for authenticated reads. It exposes no flash, erase, programming, reboot, application-start, LCD-settings, or PD-control command. In the stock application it opens a normal vendor session with Connect/authentication and memory-read requests, with USB reset disabled; "read-only" refers to device storage and settings, not the direction of USB packets.
 
-The initial acquisition currently accepts **KM003C HW2.3 with stock firmware 2.0.7**. Other revisions stop before acquisition. This is an experimental workflow, based on the original unit's read/recovery operations. The new bootstrap command sequence has synthetic/offline tests; it has **not yet been run end to end on an untouched stock unit**. The original unit's successful complete restoration does not qualify every other meter.
+The initial acquisition currently accepts **KM003C HW2.3 with stock firmware 2.0.7**. Other revisions stop before acquisition. On 2026-10-30, stock acquisition, manual DFU double reads, offline verification, restore-package generation and fresh baseline import were verified on the original meter after restoring its stock application and all external NOR. The owner also reported normal operation of the PD functions they checked after restoration. This remains an experimental workflow verified on **one restored unit**, not a second, previously untouched meter. See [the validation record](VALIDATION.md#bootstrap-hardware-check-2026-10-30); no compatibility or recovery guarantee is implied for other meters.
 
 ## 1. Build before connecting the meter
 
@@ -20,7 +20,7 @@ Keep `bootstrap/Cargo.lock`; `build-backup.ps1` uses `--locked`. It builds softw
 
 ## 2. Acquire from the untouched stock application
 
-Close the Web-controller server and official meter software so they cannot compete for USB. Attach **one meter**, using only its side HID connector, with both measurement connectors empty. Start normally into the original measurement application. Keep the same PC USB port and cable through the DFU check.
+Close the Web-controller server and official meter software, and let their USB helper processes finish, so they cannot compete for USB. Attach **one meter**, using only its side HID connector, with both measurement connectors empty. Start normally into the original measurement application. Keep the same PC USB port and cable through the DFU check.
 
 ```powershell
 & $backup inspect
@@ -93,6 +93,8 @@ For a new baseline, source preparation first runs the independent **offline** ve
 
 **The first 3 MiB is not a full external-NOR backup.** On the original meter, stock reads supplied the prefix; a native DFU storage-read attempt was rejected. The complete 4 MiB was read through the custom application's maintenance service, before any game-resource write. The bootstrap tool deliberately makes no claim to acquire the last 1 MiB from stock.
 
+Finish stock-function tests and settings changes **before** acquiring the recovery snapshots. Keep the meter idle from stock acquisition through the full-NOR backup. During the reference test, running stock PD checks between acquisitions changed some NOR contents; the prefix comparison correctly refused the stale snapshot. If this happens, preserve the failed capture, acquire a fresh stock/DFU set and matching full-NOR backup, and keep the earlier snapshots separately. Do not edit verification flags to bypass a mismatch. The active stock and external-backup paths must refer to the same consistent snapshot set.
+
 Continue [BUILD.md](BUILD.md) to generate data and build the custom application. The following is the later **application-write** stage, not part of the read-only bootstrap. Perform it only after steps 2–4 pass and the stock restore package and additional copy exist. Hold Exit while reconnecting HID to enter native DFU:
 
 ```powershell
@@ -121,6 +123,7 @@ Game installation writes only the first 3 MiB, requires the verified full backup
 cargo test --manifest-path bootstrap/Cargo.toml --locked
 cargo clippy --manifest-path bootstrap/Cargo.toml --all-targets --locked -- -D warnings
 python scripts/test-prepare-sources.py
+python scripts/test-check-recovery.py
 ```
 
 These tests use synthetic data and no USB. They cover mismatching/short reads, overwrite refusal, original application CRC failure despite updated hashes, fixed-range/path checks, calibration identity, missing DFU evidence, and disagreement with either DFU readback. Verification records establish local consistency, not a cryptographic signature or a guarantee that a future device write will succeed.

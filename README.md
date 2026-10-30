@@ -76,7 +76,7 @@ cd apdo-doom-on-km003c
 python scripts/prepare-sources.py --sources-only
 ```
 
-This reconstructs the source without accessing USB. For the **first backup**, build the independent read-only tool with `.\scripts\build-backup.ps1`; it needs no prior backup or private loader. Follow [first acquisition and verification](docs/FIRST-BACKUP.md) to obtain your own recovery material before building the hardware-update host. Initial acquisition accepts HW2.3 / stock 2.0.7; the new bootstrap sequence still needs an end-to-end test on untouched stock hardware. See [the build guide](docs/BUILD.md) for toolchains, Freedoom conversion, and the subsequent builds.
+This reconstructs the source without accessing USB. For the **first backup**, build the independent read-only tool with `.\scripts\build-backup.ps1`; it needs no prior backup or private loader. Follow [first acquisition and verification](docs/FIRST-BACKUP.md) to obtain your own recovery material before building the hardware-update host. Initial acquisition accepts HW2.3 / stock 2.0.7. Stock/DFU acquisition and baseline import have been verified on the original unit after restoring stock; other units have not been tested. See [the build guide](docs/BUILD.md) for toolchains, Freedoom conversion, and the subsequent builds.
 
 ```powershell
 .\scripts\build-host.ps1
