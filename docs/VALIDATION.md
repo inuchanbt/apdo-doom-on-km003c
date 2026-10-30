@@ -121,3 +121,23 @@ control still fits a 1280×720 viewport (footer bottom about 687 CSS pixels), an
 the README screenshot was refreshed. Raw measurements, update evidence and
 packages remain in ignored `artifacts/performance-20261030/`; sanitized medians
 are in [performance-v8.json](performance-v8.json). See [performance notes](PERFORMANCE.md).
+
+
+## Binary-release preparation (2026-10-31)
+
+The square v8 candidate was rebuilt from the implementation recorded at
+`6280221d8364dc7ac329f71944340fda33a1e270`. Its `.mencrypt` and raw application
+were byte-identical to the tested files. After normalizing the loader-committed
+size/CRC metadata, the complete application also matched the verified installed
+readback. The candidate is application-only at `0x4000`; known private serial
+encodings and the private loader blob were absent, and firmware sources contain
+no recovery-image includes. The local board-host executable is excluded from
+release assets because it embeds the private loader baseline and can contain
+the configured serial.
+
+No device was flashed for this release-preparation work. The container's use in
+the official GUI updater remains untested, and no game data is embedded. The
+local candidate, SHA-256 file, audit report and release-note draft remain under
+ignored `artifacts/release-v8-candidate/`. No binary was published: upstream board
+source/binary redistribution terms and a complete licensed corresponding-source
+bundle remain outstanding. See [binary-release requirements](BINARY-RELEASE.md).

@@ -15,3 +15,19 @@ Hardware backups, device identifiers, calibration data, compiled firmware, and c
 The KM003C enclosure artwork at web/assets/km003c-shell.webp was supplied by the project owner for the controller presentation. The original image is preserved; rotation and live-image compositing are performed in CSS. Original image rights remain with their respective owner; the project's MIT license does not grant additional rights to this supplied artwork.
 
 The hardware demonstration video in `docs/videos/` was supplied by the project owner. Rights in the original recording are retained; the code license does not grant an additional license to the recording.
+
+
+## Prebuilt firmware release review (2026-10-31)
+
+No prebuilt application or local board-host executable is currently offered.
+Redistribution permission for the pinned board firmware has not been obtained.
+Its source and binary terms must be clarified in a way compatible with the
+linked GPL-2.0-or-later engine before publishing a combined firmware package and
+its corresponding source. The local board-host executable also embeds the private
+loader baseline and can contain the configured serial; it is not a public
+release asset. See [binary-release requirements](docs/BINARY-RELEASE.md).
+
+The repository's own MIT license and the README's hardware-risk notice do not
+grant additional rights in upstream code. A future release must retain required
+license notices and supply the corresponding source/build material; the automatic
+GitHub source archive does not include ignored upstream checkouts.

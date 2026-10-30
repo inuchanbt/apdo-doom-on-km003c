@@ -8,6 +8,35 @@
 
 **Yes, the POWER-Z KM003C USB-C power meter runs DOOM.** More precisely, it runs the low-memory DOOM engine with Freedoom's E1M1 data on its own MCU. The PC builds, flashes, and verifies it; gameplay runs on the meter.
 
+## Flashing risks — read first
+
+**This experimental firmware can leave your meter unusable and can cause loss of
+factory data. Repair or replacement may be necessary. Recovery is not guaranteed,
+even with backups.** A wrong image, an interrupted update, hardware differences
+or software faults can prevent normal boot or USB access.
+
+- Only **one KM003C HW2.3 unit, originally on stock 2.0.7**, has been tested.
+  This does not establish compatibility with every HW2.3 unit or other revisions.
+- Before the first custom-application flash, verify **your own meter's** stock
+  and DFU backups, make its stock restore package and keep another copy. Before
+  installing game data, also complete its verified **4 MiB external-NOR backup**.
+  Follow [the first-backup sequence](docs/FIRST-BACKUP.md); never substitute
+  another unit's loader, calibration or recovery data.
+- Game data overwrites the original first **3 MiB of external NOR**. Restoring
+  only the stock application does not undo that write. Full rollback requires
+  the original NOR data and stock application in the [documented order](docs/RECOVERY.md).
+- Exit-held power-on DFU is a recovery route while the native loader and USB
+  path remain functional. It cannot guarantee recovery from a damaged loader,
+  inaccessible USB, lost factory data or hardware damage.
+- During flashing and gameplay, connect **only the side HID port** and leave
+  both measurement connectors empty. The DOOM application replaces the normal
+  measurement/PD application. This is not an official manufacturer update;
+  warranty/support treatment has not been established.
+
+**Prebuilt firmware is not currently published:** the upstream board firmware's
+redistribution license is unresolved. A risk disclaimer does not replace that
+permission. See [binary-release status and requirements](docs/BINARY-RELEASE.md).
+
 **[▶ Watch the hardware demo — 60 seconds · MP4 · 5.1 MB](docs/videos/apdo-doom-on-km003c.mp4)**
 
 ![Web controller with a live capture from the KM003C](docs/images/km003c-web-controller.jpg)
@@ -32,7 +61,7 @@
 
 There is no sound, save support, persistent settings, or supported transition to another map in this build. The DOOM configuration does not start the meter's measurement or PD tasks. Use the side HID port for power and leave the measurement connectors disconnected.
 
-This is an experimental port verified on **one unit**, not a compatibility claim for every HW2.3 meter. Updates require an exact match with a privately saved loader baseline. Stock firmware, bootloader dumps, calibration data, device serials, and compiled firmware are excluded from this repository.
+This is an experimental port verified on **one unit**, not a compatibility claim for every HW2.3 meter. Updates require an exact match with a privately saved loader baseline. Stock firmware, bootloader dumps, calibration data and device serials are excluded. Generated firmware is excluded from the source tree; any future eligible binaries would be separate GitHub Release assets, subject to the [release requirements](docs/BINARY-RELEASE.md).
 
 ## Controls
 
@@ -87,7 +116,7 @@ This reconstructs the source without accessing USB. For the **first backup**, bu
 .\scripts\build-firmware.ps1
 ```
 
-These build commands do not flash a device. The repository does not include a universal installer or a ready-to-flash release.
+These build commands do not flash a device. There is no universal installer or published prebuilt firmware release; [licensing and release requirements](docs/BINARY-RELEASE.md) still need to be resolved.
 
 ## Recovery and verification
 

@@ -78,6 +78,8 @@ The converter downloads the official Freedoom 0.13.0 release into its ignored `d
 
 ## 5. Build
 
+Building a container for your meter does not settle permission to redistribute the upstream board code. Prebuilt firmware publication is currently pending [redistribution terms and corresponding-source preparation](BINARY-RELEASE.md). Do not upload the locally built host CLI: it embeds the private loader baseline and can contain your configured serial.
+
 ```powershell
 .\scripts\build-host.ps1
 .\scripts\build-firmware.ps1 -Python python -Name km003c-doom
