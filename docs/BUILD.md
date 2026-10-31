@@ -2,7 +2,17 @@
 
 This branch targets Windows/PowerShell, Rust 1.99.1 Windows GNU, ARM target
 `thumbv7em-none-eabihf`, Python 3.10+, Git and LLVM-MinGW (recorded Clang 23.1.4).
-Install those tools as described in the archived [toolchain setup](legacy/BUILD.md#2-configure-the-toolchains).
+For the complete release archive use [RELEASE-BUILD.md](RELEASE-BUILD.md).
+For a Git checkout, install Git, Python, Rustup and the Windows GNU toolchain/ARM target:
+
+```powershell
+rustup toolchain install stable-x86_64-pc-windows-gnu --component rustfmt --component clippy
+rustup target add --toolchain stable-x86_64-pc-windows-gnu thumbv7em-none-eabihf
+```
+
+Install [LLVM-MinGW](https://github.com/mstorsjo/llvm-mingw/releases); the recorded
+build used its 20261020 UCRT x86_64 package. For a separately named pinned Rust
+toolchain, set `APDO_RUST_TOOLCHAIN` before loading `scripts/env.ps1`.
 Set `APDO_LLVM_BIN` to the LLVM `bin` directory if it is outside `tools/`.
 
 ## Prepare public sources and game data

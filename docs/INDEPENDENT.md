@@ -101,7 +101,7 @@ an application is a separate command with another image comparison.
 
 The legacy overlays, board patch and archived documentation are historical inputs
 to v8 and are **not** used by the independent build. They retain their prior
-provenance and are not relicensed by this work. A release source bundle must
-include the actual independent source, pinned engine and dependency notices,
-and exclude private backups/build caches. No binary publication or merge to
-`main` is implied by this development branch.
+provenance and are not relicensed by this work. The explicit experimental release source bundle
+includes independent source, pinned engine, Cargo/runtime source and dependency
+notices, and excludes private backups/build caches. The main branch retains
+legacy firmware code, with README links to the independent Pre-release.

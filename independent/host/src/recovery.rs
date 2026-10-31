@@ -13,6 +13,25 @@ use km003c_lib::{
     firmware::{FirmwareImage, FirmwareUsbMode, find_firmware_device},
 };
 use std::{fs, path::Path};
+/// Offline release audit: bind a validated container to every installed byte.
+pub fn audit(package: &Path, readback: &Path) -> Result<()> {
+    let encoded = fs::read(package)?;
+    let image = FirmwareImage::parse(&encoded)?;
+    image.validate_for_update()?;
+    let actual = fs::read(readback)?;
+    ensure!(
+        image.installed_data()? == actual,
+        "Package does not reproduce the verified device readback"
+    );
+    println!(
+        "{}",
+        serde_json::json!({"model":image.metadata().model,"version":image.metadata().version,
+        "application_bytes":actual.len(),"application_base":"0x4000",
+        "package_sha256":backup::digest(&encoded),"installed_sha256":backup::digest(&actual),
+        "readback_verified":true})
+    );
+    Ok(())
+}
 
 pub fn package(input: &Path, output: &Path, installed: bool) -> Result<()> {
     let mut bytes = fs::read(input)?;

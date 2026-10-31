@@ -222,6 +222,13 @@ fn run() -> Result<()> {
         "Usage: apdo-host info | game-control [--preview] | loader | pause | play"
     );
     match args[0].as_str() {
+        "audit-image" => {
+            ensure!(
+                args.len() == 3,
+                "Usage: apdo-host audit-image PACKAGE VERIFIED_READBACK"
+            );
+            return recovery::audit(args[1].as_ref(), args[2].as_ref());
+        }
         "nor-backup" => {
             ensure!(
                 args.len() == 3,
