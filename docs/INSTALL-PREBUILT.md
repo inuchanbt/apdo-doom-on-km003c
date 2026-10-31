@@ -15,6 +15,13 @@ only the SIDE HID connector. Never flash a loader/ICG or another unit's backups.
 Stop on a hardware, port, hash or readback mismatch; do not force or blindly retry.
 Loading this file in the manufacturer's graphical updater is **untested**.
 
+**Known compatibility report:** A [September 2023 HW2.1 unit reportedly froze at
+the title screen](https://x.com/tomoca2/status/2116438041766375717). Original-firmware
+restoration also errored, although the reporter recovered using forced DFU. The
+exact build/cause is unconfirmed. **This guide remains HW2.3 only; do not bypass
+hardware checks.** That recovery report is not a guarantee or an alternative
+restoration procedure. See [the report record](VALIDATION.md#external-hw21-failure-report).
+
 ## 1. Obtain the release and build the host tools
 
 Download the recommended `-firmware.zip` (update container + notices + guide),

@@ -14,6 +14,12 @@
 
 ## ダウンロードとリスク
 
+**HW2.1の不動作報告あり：** [利用者の報告](https://x.com/tomoca2/status/2116438041766375717)では、
+**2023年9月製造のHW2.1でタイトル画面にてフリーズ**し、純正ファームへの復帰もエラーになったものの、
+**強制DFUモードでは復旧できた**とのことです。使用したファームの版・原因は未確認で、本プロジェクトでの再現確認は行っていません。
+**HW2.1は対応対象外です。HW2.3の照合を回避しないでください。** この個体での復旧成功は、他個体でも復旧できる保証ではありません。
+詳細は[互換性の報告記録](docs/VALIDATION.md#external-hw21-failure-report)を参照してください。
+
 [独立版 v0.1.0-independent をダウンロード](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.0-independent)。
 推奨の `-firmware.zip` に更新用 `.mencrypt`・通知・導入手順を同梱しています。別添のFreedoom E1M1データも必要です。
 [導入手順](docs/INSTALL-PREBUILT.md)を先に読んでください。対応する全ソース、ライセンス通知、

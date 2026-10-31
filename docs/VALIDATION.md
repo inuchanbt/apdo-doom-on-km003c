@@ -20,6 +20,26 @@ from interrupted programming, compatibility with other units/revisions, the
 manufacturer's GUI updater, or exhaustive charging-protocol/PD conformance.
 The project remains experimental and backup requirements remain in force.
 
+## External HW2.1 failure report
+
+A [report by @tomoca2 on X](https://x.com/tomoca2/status/2116438041766375717),
+received on 2026-10-31, describes one **HW2.1 meter manufactured in September 2023**:
+
+- The application froze at the title screen.
+- Attempts to restore the original firmware also produced an error.
+- The reporter successfully recovered the unit using **forced DFU mode**.
+
+This entry records the reporter's account supplied by the project owner. It has
+not been independently reproduced on project hardware. The exact firmware build,
+stock firmware version, title-screen stage, error output and root cause were
+not supplied in the quoted report. No specific DFU entry sequence is established
+by that account, so it is not a new recovery procedure or a universal workaround.
+
+**HW2.1 remains unsupported.** Do not bypass hardware validation to try it.
+Project qualification remains limited to the same HW2.3 / stock 2.0.7 unit;
+recovery reported on this HW2.1 unit does not establish recoverability of other
+units or failure modes. No HW2.1 fix or additional compatibility claim is made.
+
 ## Previously recorded engineering checks
 
 - Independent ARM firmware and Windows host compile; Clippy checks passed.

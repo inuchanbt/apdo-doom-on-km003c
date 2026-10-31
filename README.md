@@ -14,6 +14,14 @@ See [branch and tool migration](docs/BRANCHES.md) when updating an existing work
 
 ## Experimental firmware download — read the risks first
 
+**HW2.1 incompatibility report:** A [community tester](https://x.com/tomoca2/status/2116438041766375717)
+reports that a **September 2023 HW2.1 unit freezes at the title screen**. Attempts
+to restore the original firmware also errored; the tester reports successful
+recovery using forced DFU mode. The exact firmware build and cause have not been
+confirmed, and this report has not been independently reproduced. **HW2.1 is not
+supported; do not bypass the HW2.3 checks.** Recovery on that unit does not
+guarantee recovery on another. See [compatibility reports](docs/VALIDATION.md#external-hw21-failure-report).
+
 [Download v0.1.0-independent](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.0-independent).
 The recommended `-firmware.zip` includes the application-only `.mencrypt`,
 notices and installation guide. Also obtain the separate Freedoom E1M1 data ZIP,

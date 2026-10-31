@@ -4,6 +4,14 @@ Release: [v0.1.0-independent](https://github.com/inuchanbt/apdo-doom-on-km003c/r
 Firmware metadata: `KM003C / 2.0.7-apdo2`. This is a **Pre-release**, not a stable,
 manufacturer-approved or universally compatible update.
 
+**HW2.1 failure report:** A [tester with a September 2023 HW2.1 unit](https://x.com/tomoca2/status/2116438041766375717)
+reported a title-screen freeze, errors restoring the original firmware, and
+successful recovery via forced DFU. The exact tested build and cause are
+unconfirmed; this is an external account, not a project reproduction. **HW2.1 is
+unsupported.** This release remains qualified only on the recorded HW2.3 unit,
+and the reported recovery does not guarantee recovery elsewhere. See
+[the compatibility record](VALIDATION.md#external-hw21-failure-report).
+
 ## Assets and provenance
 
 - An application-only `.mencrypt`, linked at `0x4000`, with the Freedoom startup banner.

@@ -10,6 +10,13 @@ qualified backup at runtime. On 2026-10-31 the owner confirmed this independent
 workflow from initial installation through complete stock restoration on the
 same HW2.3 unit. Other units remain untested; see [VALIDATION.md](VALIDATION.md).
 
+**Known compatibility report:** A [September 2023 HW2.1 unit reportedly froze at
+the title screen](https://x.com/tomoca2/status/2116438041766375717). Original-firmware
+restoration also errored, although the reporter recovered using forced DFU. The
+exact build/cause is unconfirmed. **This guide remains HW2.3 only; do not bypass
+hardware checks.** That recovery report is not a guarantee or an alternative
+restoration procedure. See [the report record](VALIDATION.md#external-hw21-failure-report).
+
 ## 1. Build the read-only acquisition tool
 
 ```powershell
