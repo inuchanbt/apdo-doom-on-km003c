@@ -1,89 +1,74 @@
-# Prebuilt firmware: status and requirements
+# Independent experimental binary release
 
-**Status on 2026-10-31: no firmware binary is published.** Preparing a valid
-update container and documenting device risks do not establish redistribution
-rights for the code it contains.
+Release: [v0.1.0-independent](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.0-independent).
+Firmware metadata: `KM003C / 2.0.7-apdo2`. This is a **Pre-release**, not a stable,
+manufacturer-approved or universally compatible update.
 
-## Current publication blocker
+## Assets and provenance
 
-The board application is derived from
-[okhsunrog/km003c-firmware](https://github.com/okhsunrog/km003c-firmware), pinned
-to `87b3f787d1c1e2ea6213461e1e1cdfce29fb57e3`. That checkout has no license file
-or redistribution grant in its README/Cargo manifests. GitHub currently reports
-no detected repository license either. Separate redistribution permission has
-not been obtained. The project's MIT license does not license this upstream
-code; a hardware-risk disclaimer does not supply that permission.
+- An application-only `.mencrypt`, linked at `0x4000`, with the Freedoom startup banner.
+- The exact Freedoom 0.13.0 E1M1 pack in a separate ZIP (2,802,000 bytes).
+- An explicit corresponding-source archive: active project source, patched pinned
+  DMC100-Doom, the pinned doomgeneric converter inputs, generated C, the original
+  verified Freedoom archive, Cargo dependencies by origin, and matching Rust library
+  sources/notices. General build tools are installed separately.
+- Upstream/dependency notices, `INSTALL-PREBUILT.md`, `RELEASE-MANIFEST.json` and
+  `SHA256SUMS.txt` accompany the downloads. Use the attached source archive, not
+  GitHub's automatic repository-only source ZIP.
 
-[GitHub's licensing guidance](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository)
-distinguishes the ability to view/fork a public repository from a license to
-redistribute its contents. The upstream author needs to clarify the applicable
-terms before a binary containing that code is offered here.
+The application bytes were rebuilt and compared with the existing device-verified
+build. The pinned library validates the update container and reproduces every byte
+of the installed readback. The native loader remained unchanged. No stock app,
+loader/ICG dump, settings, calibration, private backup or device identifier is
+included in the public assets. No host executable is included in this release.
 
-The permission must cover **modified source and binary redistribution under
-terms compatible with the linked GPL-2.0-or-later engine**. Permission to post a
-binary alone would not resolve the corresponding-source requirements. Preserve
-all applicable notices and determine the license of the combined distribution;
-do not label the complete firmware MIT merely because original project scripts
-and additions use MIT. See [third-party notices](../THIRD_PARTY_NOTICES.md).
+## Tested scope and unverified paths
 
-## What a future firmware download would contain
+One HW2.3 unit originally running stock 2.0.7 was tested for flashing/full app
+readback, unchanged loader, native DFU return/restart, rendering, PC input and
+preview. The startup logo preview was compared pixel-for-pixel with its source.
+Earlier stock restore/PD checks used the legacy workflow. On **2026-10-31**, after
+the release was published, the owner additionally confirmed the independent
+workflow from initial installation through complete stock restoration on the
+same HW2.3 unit. This is an owner-reported hardware round trip; new private
+acquisition/readback logs were not independently inspected for this update.
+Additional units/revisions and exhaustive protocol conformance are not qualified.
+See [VALIDATION.md](VALIDATION.md).
 
-The proposed initial variant is the tested v8 square application: a 240×200
-world plus the complete 40-row HUD, with Steady frame pacing by default.
+The release tag and attached files remain unchanged. Their qualification flags
+describe the evidence available when the assets were created. This later result
+is documented on `main` and in the updated release notes.
 
-- A custom application-only `.mencrypt` update container, targeting `0x4000`.
-- No stock application, native loader/ICG image, factory calibration, settings,
-  device identifier or original external-NOR backup.
-- No built-in game pack. The separate, verified Freedoom E1M1 data is still
-  needed in external NOR before gameplay can start.
+Loading this container through the manufacturer's graphical updater has **not**
+been tested. Use the documented qualified host workflow. The file format alone
+does not prove updater/hardware compatibility.
 
-The `.mencrypt` format is validated and has been flashed/read back with this
-project's host workflow on the original HW2.3 unit. **Loading it through an
-official graphical updater has not been tested.** It must not be advertised as
-a verified official-updater or one-click installation path.
+## Risks and required preparation
 
-The model/version fields in a container are not proof of hardware compatibility.
-Only one HW2.3 meter, originally running stock 2.0.7, has been tested. Other
-revisions and previously modified units are outside the validated workflow.
+This can permanently disable the meter or destroy factory data; recovery is not
+guaranteed and repair/replacement may be necessary. DOOM replaces tester functions:
+there is no USB measurement, PD negotiation or stock tester UI while installed.
+Game data rewrites the original first 3 MiB of NOR. Your own qualified stock/DFU
+backup and stock restore package are required before app flashing; your own full
+original 4 MiB NOR backup is required before game writes. Stock app alone is not a
+complete rollback. Restore NOR first, then the original app, as documented.
 
-## Work needed before publication
+Connect only side HID, leaving both measurement connectors empty. Do not write a
+loader/ICG, substitute another unit's backup, bypass a hardware/port/hash check,
+or retry an ambiguous program failure. See [INSTALL-PREBUILT.md](INSTALL-PREBUILT.md)
+and [FIRST-BACKUP.md](FIRST-BACKUP.md). This project is unofficial and provided
+without project warranty; manufacturer approval/support is not claimed.
 
-1. Record upstream redistribution terms and check them against the complete
-   linked application's licensing requirements.
-2. Supply complete corresponding source and build material for the distributed
-   object code, together with required license/credit notices. GitHub's automatic
-   source ZIP does **not** contain the ignored `vendor/` checkouts. A source
-   archive must be assembled deliberately; external source links and local
-   patches alone should not be presented as that complete archive.
-3. Rebuild the chosen variant from the recorded source revision. Validate its
-   container and application bounds; bind its SHA-256 to the exact tested
-   package and verified application readback. Check for private data and keep
-   hardware evidence/device identifiers out of public assets.
-4. Include installation/recovery instructions that retain the existing
-   per-device checks. The current host embeds a private loader allowlist and
-   can include a configured serial: **do not upload that local host executable**.
-   A generic prebuilt installer would require a separate implementation and
-   verification; it is not supplied by publishing an application file.
-5. Publish the eligible assets, source and notices together as an explicitly
-   experimental GitHub Release, with the README risks repeated in its notes.
-   Keep stock/recovery images private. The source tree continues to exclude
-   generated `.mencrypt` files.
+## License scope
 
-## Device preparation still applies to prebuilt images
+The distributed combined firmware is GPL-2.0-or-later; its upstream components
+retain their individual notices. For dual MIT/Apache dependencies this distribution
+uses the MIT option; Unicode and 0BSD notices are retained. Freedoom art is BSD;
+the converted pack also contains GPL engine strings/tables. Full license texts,
+credits and corresponding source are provided next to the binary downloads.
+See [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 
-Start with [FIRST-BACKUP.md](FIRST-BACKUP.md). Before the first custom-application
-write, obtain this meter's verified stock/DFU snapshots and stock restore package,
-and keep an additional copy. Before writing game data, acquire and verify its
-complete original 4 MiB external-NOR backup through the maintenance service.
-
-The game-data installation overwrites the original first 3 MiB. Returning to
-stock afterwards requires restoring the original NOR contents **and** stock
-application in the documented order. A stock application file alone is not a
-complete rollback. Native DFU entry helps only while the loader and USB path
-remain usable; neither a backup nor a successful test on one unit guarantees
-recovery. See [RECOVERY.md](RECOVERY.md).
-
-Connect only the side HID port during these operations and leave both measurement
-connectors empty. The DOOM application does not provide the original measurement
-and PD functions. This is an independent experiment, not an official manufacturer
-update; warranty/support treatment has not been established.
+The independent binary does not contain `okhsunrog/km003c-firmware` or its generated
+PAC. Only explicitly licensed HAL parts are retained. Redistribution permission
+for the **legacy v8 board-derived binary** is still absent; this release does not
+redistribute it or relicense the historical files.

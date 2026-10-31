@@ -1,0 +1,18 @@
+[workspace]
+resolver = "3"
+members = ["hardware", "protocol", "firmware", "host"]
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+license = "MIT"
+[profile.release]
+lto = "thin"
+codegen-units = 1
+[patch.crates-io]
+embassy-executor-timer-queue = { git = "https://github.com/embassy-rs/embassy.git", rev = "c2413d5994bbd8b7e6d5975fd49e6427cb903a02" }
+embassy-time = { git = "https://github.com/embassy-rs/embassy.git", rev = "c2413d5994bbd8b7e6d5975fd49e6427cb903a02" }
+embassy-time-driver = { git = "https://github.com/embassy-rs/embassy.git", rev = "c2413d5994bbd8b7e6d5975fd49e6427cb903a02" }
+embassy-time-queue-utils = { git = "https://github.com/embassy-rs/embassy.git", rev = "c2413d5994bbd8b7e6d5975fd49e6427cb903a02" }
+embassy-usb = { git = "https://github.com/embassy-rs/embassy.git", rev = "c2413d5994bbd8b7e6d5975fd49e6427cb903a02" }
+embassy-sync = { git = "https://github.com/embassy-rs/embassy.git", rev = "c2413d5994bbd8b7e6d5975fd49e6427cb903a02" }
+embassy-usb-driver = { git = "https://github.com/embassy-rs/embassy.git", rev = "c2413d5994bbd8b7e6d5975fd49e6427cb903a02" }

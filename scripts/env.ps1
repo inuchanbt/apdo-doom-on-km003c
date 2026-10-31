@@ -7,10 +7,11 @@ $taskLlvm = if ($env:APDO_LLVM_BIN) { $env:APDO_LLVM_BIN } else { Join-Path $tas
 $env:APDO_LLVM_BIN = $taskLlvm
 $taskRustupRoot = if ($env:RUSTUP_HOME) { $env:RUSTUP_HOME } else { Join-Path $env:USERPROFILE '.rustup' }
 $taskCargoRoot = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { Join-Path $env:USERPROFILE '.cargo' }
-$taskGcc = Join-Path $taskRustupRoot 'toolchains\stable-x86_64-pc-windows-gnu\lib\rustlib\x86_64-pc-windows-gnu\bin\self-contained'
+$taskToolchain = if ($env:APDO_RUST_TOOLCHAIN) { $env:APDO_RUST_TOOLCHAIN } else { 'stable-x86_64-pc-windows-gnu' }
+$taskGcc = Join-Path $taskRustupRoot "toolchains\$taskToolchain\lib\rustlib\x86_64-pc-windows-gnu\bin\self-contained"
 $env:CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = Join-Path $taskGcc 'x86_64-w64-mingw32-gcc.exe'
 $env:CARGO_TARGET_X86_64_PC_WINDOWS_GNU_RUSTFLAGS = "-C dlltool=$taskLlvm\llvm-dlltool.exe"
-$taskRustBin = Join-Path $taskRustupRoot 'toolchains\stable-x86_64-pc-windows-gnu\bin'
+$taskRustBin = Join-Path $taskRustupRoot "toolchains\$taskToolchain\bin"
 $env:PATH = "$taskRustBin;$taskCargoRoot\bin;$taskGcc;$taskLlvm;$env:PATH"
 if (Test-Path -LiteralPath "$taskRoot\local\device.json") {
     $taskEnvConfig = Get-Content -Raw -LiteralPath "$taskRoot\local\device.json" | ConvertFrom-Json

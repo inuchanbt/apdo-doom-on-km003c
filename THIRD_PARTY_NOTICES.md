@@ -1,33 +1,75 @@
-# Third-party notices and license scope
+# Third-party notices and license scope — independent release
 
-The repository's existing LICENSE is MIT, copyright 2026 @USB_PD_EPR_240W. It applies to original project documentation, orchestration scripts, and original Rust additions where no other license is stated. It does not relicense upstream material or GPL-covered engine integration.
+The combined independent MCU application is distributed under
+**GPL-2.0-or-later**; [COPYING](COPYING) supplies that text. This is not an all-MIT
+firmware. Original project scripts, documentation, new Rust board/wire/host code
+and the independent backup utility are MIT where no other notice is stated;
+[LICENSE](LICENSE) retains copyright 2026 @USB_PD_EPR_240W. Each upstream component
+retains its copyright/license notices.
 
-The independent `bootstrap/` backup tool is an original MIT-licensed Rust addition. Its pinned `km003c-lib` transport dependency and other Cargo dependencies retain their own licenses. Building it does not include or redistribute a device-private loader baseline.
+## DOOM engine and generated game data
 
-The low-memory DOOM engine and converter are based on Artur Bieniek's [DMC100-Doom](https://github.com/ArturBieniek4/DMC100-Doom), incorporating the id Software DOOM engine and doomgeneric. Preserve their source notices. The files in native/ and the DMC100-Doom converter patch are GPL-2.0-or-later; see COPYING and the upstream notices. Revisions and local changes are recorded in SOURCE_LOCK.json, patches/, overlays/, and native/.
+Artur Bieniek's [DMC100-Doom](https://github.com/ArturBieniek4/DMC100-Doom) is pinned
+in `SOURCE_LOCK.json`, incorporating id Software DOOM, Chocolate Doom, Raven and
+PrBoom-plus contributions and doomgeneric. Engine/converter/native integration
+and local DMC changes are GPL-2.0-or-later. Preserve upstream `COPYING`, `LICENSES/`
+and `CREDITS.md`, including their detailed file/copyright list. The complete source
+bundle includes the patched DMC source, generated C and the pinned unmodified
+doomgeneric files used by its converter. Upstream MIT/public-domain material
+retains the notices recorded in DMC's credits; unused upstream board drivers are
+not linked into the independent KM003C application.
 
-The board firmware and host transport are based on [okhsunrog/km003c-firmware](https://github.com/okhsunrog/km003c-firmware) and its pinned km003c-lib dependency. The pinned board repository has no top-level license file. Patches do not grant an additional license for that upstream source. Consult its individual file notices and dependency licenses before redistributing bundled sources or firmware binaries. The repository publishes source additions and patches, not a copy of the upstream firmware or proprietary recovery images.
+[Freedoom 0.13.0](https://freedoom.github.io/) art/game assets are modified BSD
+(BSD-3-Clause), Copyright (c) 2001–2024 Contributors to the Freedoom project.
+`notices/freedoom-0.13.0/COPYING.txt` and `CREDITS.txt` accompany the firmware/game
+data. **The converted DOOM.DAT also includes GPL engine strings/tables**; it is
+not described as entirely BSD. The release supplies corresponding conversion
+source and exact inputs alongside it. No commercial DOOM IWAD is included.
 
-Game assets are [Freedoom 0.13.0](https://freedoom.github.io/), distributed under its modified BSD license. The README's Web-controller screenshot, the host-rendered preview, and the device-capture image, and the hardware demonstration video in docs use those assets. The release's COPYING and credits are retained in notices/freedoom-0.13.0/. Keep those notices with redistributed game assets. No commercial DOOM IWAD is included.
+The startup `assets/freedoom-banner.rgb565` is the original Phase 1 `M_DOOM` menu
+logo, flattened onto black and converted to RGB565. It retains Freedoom's BSD
+license, not the surrounding script's MIT license. Its adjacent JSON records
+archive/lump/asset hashes; `scripts/extract-splash.py` reproduces it from the
+verified official release. The name/contributors must not be used to imply
+endorsement of this project.
 
-Hardware backups, device identifiers, calibration data, compiled firmware, and converted game packs are excluded from version control. Source reconstruction fetches the pinned upstream repositories; their notices remain in those checkouts.
+## HC32 support
 
-The KM003C enclosure artwork at web/assets/km003c-shell.webp was supplied by the project owner for the controller presentation. The original image is preserved; rotation and live-image compositing are performed in CSS. Original image rights remain with their respective owner; the project's MIT license does not grant additional rights to this supplied artwork.
+`independent/hardware` contains an explicitly MIT-licensed clock/interrupt/timer
+subset of `okhsunrog/hc32f460-embassy-rs`; its `LICENSE-MIT`, pinned origin/file
+hashes and modifications are retained. Register facts also refer to the vendor's
+BSD-3-Clause CMSIS header; that notice is under `notices/hc32/`. No SVD file,
+generated `hc32f460-pac`, or unlicensed `okhsunrog/km003c-firmware` board crate is
+included in the independent application/source bundle. This is not a clean-room
+claim; earlier hardware investigation informed the new board code.
 
-The hardware demonstration video in `docs/videos/` was supplied by the project owner. Rights in the original recording are retained; the code license does not grant an additional license to the recording.
+## Rust dependencies and runtime
 
+Cargo locks pin the exact crates. The release's notices/source archives include
+upstream license/copyright notices, dependency inventory and source code. The
+firmware dependency graph contains GPL project code, MIT/dual MIT–Apache crates,
+0BSD and Unicode-3.0 material. Where MIT is an available alternative, this
+combined distribution selects MIT; upstream dual-license notices remain intact.
+The matching Rust library source and `COPYRIGHT-library.html`/license notices are
+also provided. General Rust/LLVM compiler executables are installed separately.
 
-## Prebuilt firmware release review (2026-10-31)
+The host/backup utilities use separately licensed, pinned `km003c-lib` under its
+MIT/Apache terms. It is not linked into the MCU application. The new host reads
+qualified private recovery files at runtime; no loader dump/serial is embedded.
+No prebuilt host executable is part of this release.
 
-No prebuilt application or local board-host executable is currently offered.
-Redistribution permission for the pinned board firmware has not been obtained.
-Its source and binary terms must be clarified in a way compatible with the
-linked GPL-2.0-or-later engine before publishing a combined firmware package and
-its corresponding source. The local board-host executable also embeds the private
-loader baseline and can contain the configured serial; it is not a public
-release asset. See [binary-release requirements](docs/BINARY-RELEASE.md).
+## Supplied media and historical code
 
-The repository's own MIT license and the README's hardware-risk notice do not
-grant additional rights in upstream code. A future release must retain required
-license notices and supply the corresponding source/build material; the automatic
-GitHub source archive does not include ignored upstream checkouts.
+The enclosure image `web/assets/km003c-shell.webp`, README screenshots and hardware
+video were supplied/created for this project. Original recording/image rights
+remain with their owners; the source-code MIT license grants no additional rights
+in supplied artwork. Screenshots/video also show Freedoom assets with their own
+notices. Hardware backups, calibration/device data and proprietary stock/loader
+images are never release assets.
+
+Legacy v8 patches/overlays, tools and documentation on the
+[legacy branch](https://github.com/inuchanbt/apdo-doom-on-km003c/tree/legacy) retain their prior
+provenance. That board repository lacks redistribution permission; the
+independent release does not redistribute its binary or relicense those files.
+They are excluded from the explicit independent source bundle. See
+[release scope](docs/BINARY-RELEASE.md) and [independent provenance](docs/INDEPENDENT.md).

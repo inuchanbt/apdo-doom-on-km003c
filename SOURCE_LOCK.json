@@ -1,7 +1,29 @@
 {
-  "km003c-firmware": {"url": "https://github.com/okhsunrog/km003c-firmware", "revision": "87b3f787d1c1e2ea6213461e1e1cdfce29fb57e3"},
-  "DMC100-Doom": {"url": "https://github.com/ArturBieniek4/DMC100-Doom", "revision": "0cdc78eb66cdddacc43112d5f79c258c4a5440b7"},
-  "doomgeneric": {"url": "https://github.com/ozkl/doomgeneric", "revision": "dcb7a8dbc7a16ce3dda29382ac9aae9d77d21284"},
-  "km003c-lib": {"url": "https://github.com/okhsunrog/km003c-rs", "revision": "efed50556d7376914bffd510e012aaa98081936f"},
-  "game_data": {"name": "Freedoom 0.13.0, converted E1M1 pack", "bytes": 2802000, "sha256": "6b25a4f1adb6f1f1f5f42226c272b93ccff4f356ac8d7034cf83712b2da70c08"}
+  "DMC100-Doom": {
+    "url": "https://github.com/ArturBieniek4/DMC100-Doom",
+    "revision": "0cdc78eb66cdddacc43112d5f79c258c4a5440b7"
+  },
+  "doomgeneric": {
+    "url": "https://github.com/ozkl/doomgeneric",
+    "revision": "dcb7a8dbc7a16ce3dda29382ac9aae9d77d21284"
+  },
+  "km003c-lib": {
+    "url": "https://github.com/okhsunrog/km003c-rs",
+    "revision": "efed50556d7376914bffd510e012aaa98081936f"
+  },
+  "game_data": {
+    "name": "Freedoom 0.13.0, converted E1M1 pack",
+    "bytes": 2802000,
+    "sha256": "6b25a4f1adb6f1f1f5f42226c272b93ccff4f356ac8d7034cf83712b2da70c08"
+  },
+  "hc32-mit-subset": {
+    "url": "https://github.com/okhsunrog/hc32f460-embassy-rs",
+    "revision": "23e09a053ddf5284d28c06407b9172adf9c48a34",
+    "license": "MIT",
+    "path": "independent/hardware",
+    "excluded": [
+      "pac",
+      "svd"
+    ]
+  }
 }

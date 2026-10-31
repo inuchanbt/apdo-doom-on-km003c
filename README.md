@@ -1,181 +1,107 @@
-# APDO — DOOM on KM003C
+# APDO DOOM — independent firmware
 
-[English](README.md) · [日本語](README.ja.md)
+[日本語](README.ja.md)
 
-> This project complies with EPR (Extended Pixel Range). In demanding combat scenes, AVS (Adjustable Violence System) dynamically optimizes violence and frame rate in 100 mHz increments. The result is delivered to the KM003C display as an APDO (Augmented Power DOOM Object)—
+This project complies with **EPR (Extended Pixel Range)**. Under intense combat,
+**AVS (Adjustable Violence System)** dynamically optimizes violence and frame rate
+in 100 mHz increments, finally delivering an **APDO (Augmented Power DOOM Object)**
+to the KM003C screen. (The USB-PD terminology is a joke.)
 
-*EPR, AVS, and APDO above are USB-PD wordplay. The implementation is a native DOOM port; measured performance is listed below.*
+`main` contains the independent DOOM-only application for the KM003C.
+**Experimental firmware is available as a Pre-release.** The previous v8
+implementation and its tools are preserved on the [legacy branch](https://github.com/inuchanbt/apdo-doom-on-km003c/tree/legacy).
+See [branch and tool migration](docs/BRANCHES.md) when updating an existing workspace.
 
-**Yes, the POWER-Z KM003C USB-C power meter runs DOOM.** More precisely, it runs the low-memory DOOM engine with Freedoom's E1M1 data on its own MCU. The PC builds, flashes, and verifies it; gameplay runs on the meter.
+## Experimental firmware download — read the risks first
 
-## Independent experimental firmware download
+[Download v0.1.0-independent](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.0-independent).
+The recommended `-firmware.zip` includes the application-only `.mencrypt`,
+notices and installation guide. Also obtain the separate Freedoom E1M1 data ZIP,
+and the [prebuilt installation guide](docs/INSTALL-PREBUILT.md). Matching complete
+source, upstream/dependency notices, a release manifest and SHA-256 checksums
+are supplied alongside them. The automatic GitHub source archive alone omits
+upstream/dependency sources; use the explicitly attached `-source.tar.gz`.
 
-**[Download v0.1.0-independent — Pre-release](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.0-independent)**
+**Installing this can permanently disable your meter or lose factory data.
+Recovery is not guaranteed; repair or replacement may be necessary.**
 
-This download is the independent DOOM-only firmware, with the Freedoom startup
-banner. **The code/build instructions below remain the legacy v8 implementation.**
-Use the tagged [prebuilt guide](https://github.com/inuchanbt/apdo-doom-on-km003c/tree/v0.1.0-independent/docs/INSTALL-PREBUILT.md) and
-[independent README](https://github.com/inuchanbt/apdo-doom-on-km003c/tree/v0.1.0-independent/README.md) for the new release.
-The release supplies the application-only `.mencrypt`, separate Freedoom E1M1
-pack, complete corresponding-source archive, license notices and SHA-256 checksums.
+- Tested on **one HW2.3 meter originally running stock 2.0.7**. Other revisions,
+  firmware versions and individual units are not validated. Do not force a mismatch.
+- This replaces the tester application with DOOM. **USB measurement, PD negotiation
+  and the stock tester UI are unavailable while it is installed.**
+- Game installation changes the first 3 MiB of external NOR. Acquire your own
+  verified stock/DFU snapshots and restore package **before flashing**, then a full
+  verified original 4 MiB NOR backup **before writing any game data**.
+- Returning to stock requires the original NOR contents **and** original app in
+  the documented order. A stock app file alone is not a complete rollback.
+- Interrupted writes, wrong hardware, firmware bugs or mismatched backups may
+  prevent recovery. On **2026-10-31**, the owner confirmed the independent
+  first-install/game-data-write/complete-stock-restore workflow on the same
+  HW2.3 unit. This does not guarantee recovery on another unit or after a failure.
+- Connect **only the side HID port** and leave both measurement connectors empty.
+  Never write a bootloader/ICG or use another unit's recovery data.
 
-**Flashing can permanently disable the meter or lose factory data. Recovery is
-not guaranteed; repair/replacement may be necessary.** Only one HW2.3 unit,
-originally stock 2.0.7, was tested. DOOM replaces measurement/PD/tester functions.
-Your own verified stock/DFU backup and restore package are required before flashing;
-a full original 4 MiB NOR backup is required before game-data writes. Returning
-to stock requires both original NOR data and the stock app in the documented order.
-Connect only side HID; leave both measurement connectors empty. Never write a
-loader/ICG, substitute another unit's backup or force a failed check.
-**The new full first-install/NOR-write/restore path and official graphical-updater
-installation are not hardware-qualified.** This is an unofficial experimental
-release, not a compatibility or recovery guarantee.
+The update file contains no stock app, loader, ICG, calibration or device identifier.
+It contains the Freedoom startup logo, but **not the playable game pack**. The
+`.mencrypt` has been flashed and read back using this project's qualified host
+workflow; loading it through the manufacturer's graphical updater is **untested**.
+This is an unofficial, experimental project, supplied without project warranty; manufacturer approval/support is not claimed. See [release details](docs/BINARY-RELEASE.md).
 
-## Flashing risks — read first
+![Web controller](docs/images/km003c-web-controller.jpg)
 
-**This experimental firmware can leave your meter unusable and can cause loss of
-factory data. Repair or replacement may be necessary. Recovery is not guaranteed,
-even with backups.** A wrong image, an interrupted update, hardware differences
-or software faults can prevent normal boot or USB access.
+[Watch the hardware demo — 60 seconds](docs/videos/apdo-doom-on-km003c.mp4).
+The recording shows the earlier implementation; the game still runs on the meter.
 
-- Only **one KM003C HW2.3 unit, originally on stock 2.0.7**, has been tested.
-  This does not establish compatibility with every HW2.3 unit or other revisions.
-- Before the first custom-application flash, verify **your own meter's** stock
-  and DFU backups, make its stock restore package and keep another copy. Before
-  installing game data, also complete its verified **4 MiB external-NOR backup**.
-  Follow [the first-backup sequence](docs/FIRST-BACKUP.md); never substitute
-  another unit's loader, calibration or recovery data.
-- Game data overwrites the original first **3 MiB of external NOR**. Restoring
-  only the stock application does not undo that write. Full rollback requires
-  the original NOR data and stock application in the [documented order](docs/RECOVERY.md).
-- Exit-held power-on DFU is a recovery route while the native loader and USB
-  path remain functional. It cannot guarantee recovery from a damaged loader,
-  inaccessible USB, lost factory data or hardware damage.
-- During flashing and gameplay, connect **only the side HID port** and leave
-  both measurement connectors empty. The DOOM application replaces the normal
-  measurement/PD application. This is not an official manufacturer update;
-  warranty/support treatment has not been established.
+## Play from the PC
 
-**The legacy v8 binary is not published:** its board-firmware redistribution
-terms remain unresolved. The independent Pre-release linked above excludes that
-board code/PAC and is supplied with corresponding source and notices.
+After completing the [installation guide](docs/INSTALL-PREBUILT.md), run
+`scripts/play.ps1` and open its printed HTTP URL in a normal browser. Keep the
+server running and click **Enable keyboard**. Use W/S or ↑/↓ to move, A/D or ←/→
+to turn, Space/Ctrl to fire, E to use, Esc for the menu and Enter to confirm.
+Turn off **Live preview** when prioritizing smooth motion on the meter.
+See [PC controls](docs/PC-CONTROLS.md) and [screen capture](docs/SCREEN-CAPTURE.md).
 
-**[▶ Watch the hardware demo — 60 seconds · MP4 · 5.1 MB](docs/videos/apdo-doom-on-km003c.mp4)**
+## What is independent?
 
-![Web controller with a live capture from the KM003C](docs/images/km003c-web-controller.jpg)
+The active build does not fetch or link `okhsunrog/km003c-firmware`, its board
+crates, or the generated `hc32f460-pac`. Board startup, GPIO, panel/backlight,
+shared LCD/NOR transport and the DOOM-only USB interface live in `independent/`.
+An explicitly MIT-licensed subset of `hc32f460-embassy-rs` supplies checked clock
+transitions, interrupt routing and TimerA timekeeping. It retains its attribution
+and tests. This is not a claim of a clean-room implementation: hardware information
+from the earlier investigation remains useful.
 
-*v8 controller with a 120×120 device capture inside the supplied KM003C image and the new frame-pacing selector. Image transfers are paused in this screenshot while testing native motion; the meter renders the game.*
+The GPL DOOM engine, Freedoom data, square projection, short-read cache, Steady
+frame pacing and Web controller are retained. The host's native-loader transport
+still uses the separately licensed, pinned `km003c-lib`.
 
-## What works
+## Build and recovery
 
-| Item | Verified result |
-| --- | --- |
-| Hardware | One POWER-Z KM003C HW2.3 unit; original firmware 2.0.7 |
-| Execution | Native Cortex-M4 / HC32F460 at 192 MHz |
-| Game | Freedoom 0.13.0, E1M1 |
-| Display | 240×180 letterbox, or v8 square mode: 240×200 world + complete 40-row HUD |
-| Performance | Steady mode targets 8.75 fps; uncapped starting scene ~8.5 fps letterbox / ~9.6 fps square, preview off |
-| Controls | Movement, turning, shooting, use, and menu inputs |
-| PC controls | Browser keyboard/mouse panel over USB; device gameplay confirmed |
-| Meter LCD | v7 adds brightness buttons and manual 90° rotation from the PC |
-| PC preview | 120×90 letterbox / 120×120 square RGB565; frame download included |
-| Startup | Starts after a 3-second hold-button window plus game-read qualification; device auto-start verified |
-| Recovery | Original application and all 4 MiB of external NOR restored and verified; stock firmware boot confirmed |
+See [BUILD.md](docs/BUILD.md) and the [implementation/provenance notes](docs/INDEPENDENT.md).
+The firmware, host and read-only backup utility can be built without any device
+backup. **Flashing still requires your own verified recovery material.** The new
+host reads that material at runtime; it embeds neither a loader dump nor a serial.
 
-There is no sound, save support, persistent settings, or supported transition to another map in this build. The DOOM configuration does not start the meter's measurement or PD tasks. Use the side HID port for power and leave the measurement connectors disconnected.
+Start an untouched meter with [FIRST-BACKUP.md](docs/FIRST-BACKUP.md).
+It covers independent initial acquisition, game installation and ordered restoration.
+The owner confirmed the complete independent install/restore sequence on
+2026-10-31; [validation details](docs/VALIDATION.md) distinguish that report from
+automated checks. Use the `legacy` branch only for the previous implementation;
+its host tools and recovery commands are not interchangeable with this version.
 
-This is an experimental port verified on **one unit**, not a compatibility claim for every HW2.3 meter. Updates require an exact match with a privately saved loader baseline. Stock firmware, bootloader dumps, calibration data and device serials are excluded. Generated firmware is excluded from the source tree; independent release binaries are separate GitHub Release assets, with the tested/untested scope and risks linked above. This section describes legacy v8.
+## Hardware risks
 
-## Controls
+Only HW2.3 / stock 2.0.7 recovery has been investigated. Unsupported revisions,
+interrupted writes, firmware bugs or a mismatched backup can leave the meter
+unusable; recovery is not guaranteed. Keep measurement connectors empty and use
+only the side HID connection during installation and play. This firmware does not
+provide USB measurements, PD negotiation or the stock tester UI. Restoring those
+features requires the original application and external NOR contents, including
+calibration/device data. Never flash a bootloader or another unit's recovery dump.
 
-| Action | Buttons |
-| --- | --- |
-| Move forward | OK |
-| Turn | Left / Right |
-| Fire | Tap Exit |
-| Open a door / use a switch | Left + Right |
-| Open the menu | Exit + OK |
-| Menu up / down | Left / Right |
-| Menu confirm / back | OK / Exit |
-| Stay in the USB maintenance service | Hold OK during startup |
-| Return to the native update loader | Hold Exit for about 2 seconds |
+## Status and license
 
-Holding Exit while connecting the HID cable also enters the native update screen, independently of the application.
-
-### Play from the PC
-
-With the PC-control firmware (v5) and updated host installed:
-
-```powershell
-.\scripts\play.ps1
-```
-
-You can start the server before connecting the meter: it retries USB automatically, including after unplug/replug. Reconnection clears held keys; click **Enable keyboard** again to resume. Open the printed HTTP URL in any normal browser, rather than opening `web/controller.html` directly.
-
-Click **Enable keyboard** in the local panel. Use **WASD / arrows**, **Space / Ctrl** to fire, **E** to use, **Esc** for the menu, and **Enter** to confirm. Switching away releases keys; enable them again when returning. The meter still renders the game. See [PC controls](docs/PC-CONTROLS.md) for setup, input expiry, and scripted control.
-
-With v7, **Meter LCD** buttons adjust the physical backlight and rotate the screen left/right in 90° steps. The preview offers **Device only** (game stays upright at a fixed position, default) and **Device + game** (joke mode). Settings reset on power-up.
-
-With v6, the same panel displays a live **120×90 RGB565 screen capture**. **Save frame** downloads a BMP. See [screen capture](docs/SCREEN-CAPTURE.md) for the resolution, memory use, and preview-rate limitations.
-
-The **Frame pacing** selector offers Steady (8.75 fps target, default) and Uncapped. Steady evens out the varying cost of different views; local inputs are sampled before simulation to avoid an extra frame of queued old input.
-
-v8 adds a square display build that retains the horizontal field of view and all HUD fields. The engine arena uses fast SRAMH; qualified 16 MHz NOR reads and a short-record cache improve the starting-scene render rate. Startup compares all game bytes at the original and faster read speeds before enabling faster reads. See [measurements, square mode, and the LZ4/DMA assessment](docs/PERFORMANCE.md).
-
-## Source and build
-
-The tested environment is Windows with PowerShell, Python 3, the Rust Windows GNU toolchain, and LLVM-MinGW. Upstream repositories are pinned in [SOURCE_LOCK.json](SOURCE_LOCK.json); patches and added source files are versioned here.
-
-```powershell
-git clone https://github.com/inuchanbt/apdo-doom-on-km003c.git
-cd apdo-doom-on-km003c
-python scripts/prepare-sources.py --sources-only
-```
-
-This reconstructs the source without accessing USB. For the **first backup**, build the independent read-only tool with `.\scripts\build-backup.ps1`; it needs no prior backup or private loader. Follow [first acquisition and verification](docs/FIRST-BACKUP.md) to obtain your own recovery material before building the hardware-update host. Initial acquisition accepts HW2.3 / stock 2.0.7. Stock/DFU acquisition and baseline import have been verified on the original unit after restoring stock; other units have not been tested. See [the build guide](docs/BUILD.md) for toolchains, Freedoom conversion, and the subsequent builds.
-
-```powershell
-.\scripts\build-host.ps1
-.\scripts\build-firmware.ps1
-```
-
-These build commands do not flash a device. These are legacy v8 build commands, not instructions for the independent Pre-release. Use the tagged prebuilt guide linked above; there is no universal installer.
-
-## Recovery and verification
-
-The tested recovery sequence restores the original external NOR contents, reads back all 4 MiB, restores the original application, verifies that the loader is unchanged, and checks the stock firmware identity. The final 1 MiB of NOR is never writable through the game service.
-
-For the original working directory with its private backups configured:
-
-```powershell
-.\scripts\restore-stock.ps1
-```
-
-Read [the recovery guide](docs/RECOVERY.md) before using it. A fresh clone does not contain recovery backups. Keep the original workspace and an additional copy of its backups.
-
-[Validation notes](docs/VALIDATION.md) distinguish device checks from the host renderer and build tests. Hardware success includes actual gameplay and a complete stock restoration, not just a successful compile.
-
-## Repository layout
-
-| Path | Contents |
-| --- | --- |
-| `bootstrap/` | Independent read-only first-backup tool and offline verifier |
-| `native/` | C engine bridge and host test harness |
-| `overlays/` | Added Rust files for the board firmware and host tools |
-| `patches/` | Changes to the pinned upstream repositories |
-| `scripts/` | Source reconstruction, builds, tests, and recovery helpers |
-| `web/` | Local keyboard/mouse control panel |
-| `docs/` | Build, recovery, and validation documentation |
-| `notices/` | Freedoom license and credits |
-| `vendor/`, `tools/` | Local source checkouts and toolchains; ignored |
-| `local/`, `backups/`, `artifacts/` | Private configuration, recovery data, and generated evidence; ignored |
-
-## Credits and licenses
-
-- [okhsunrog/km003c-firmware](https://github.com/okhsunrog/km003c-firmware): board support, Rust firmware, host tools, and native-loader workflow.
-- [ArturBieniek4/DMC100-Doom](https://github.com/ArturBieniek4/DMC100-Doom): low-memory DOOM engine and game-data converter.
-- [doomgeneric](https://github.com/ozkl/doomgeneric) and id Software: the engine's upstream lineage.
-- [Freedoom](https://freedoom.github.io/): freely redistributable game assets. No commercial DOOM IWAD is included.
-- [The custom-firmware post on r/UsbCHardware](https://www.reddit.com/r/UsbCHardware/comments/1xhtny5/running_custom_firmware_on_my_powerz_km003c/): the starting point for this experiment.
-
-The existing [MIT license](LICENSE) covers original project material where no other license is stated. The C engine integration and DMC100-Doom changes are GPL-2.0-or-later; [COPYING](COPYING) supplies the GPL text. Upstream terms remain applicable. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for scope and asset notices.
+Check [INDEPENDENT.md](docs/INDEPENDENT.md) for the recorded validation status.
+The release pairs the tested application with corresponding source and license
+notices; it does not make the legacy v8 binary redistributable or guarantee
+installation/recovery. See [third-party notices](THIRD_PARTY_NOTICES.md).

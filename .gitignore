@@ -19,3 +19,5 @@
 *.zip
 *.pyc
 __pycache__/
+
+/independent/target/

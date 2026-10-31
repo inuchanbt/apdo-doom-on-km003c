@@ -1,67 +1,47 @@
-# Recovery and per-device prerequisites
+# Restore the original tester — independent firmware
 
-The original HW2.3 meter's full stock restoration has been performed successfully. This proves the recorded procedure for that unit; it does not guarantee recovery for every device or failure mode.
+**Recovery is not guaranteed.** One successful round trip does not cover every
+unit, hardware revision or interrupted write. Connect only side HID and keep
+both measurement connectors empty. Use this meter's own qualified stock/DFU
+backup, original restore container and full original 4 MiB NOR backup.
 
-For another untouched HW2.3 / stock 2.0.7 unit, start with [FIRST-BACKUP.md](FIRST-BACKUP.md). The independent tool builds without existing backups and verifies stock/DFU reads before importing that unit's loader. Do not use the original unit's dumps. The bootstrap acquisition and import sequence was verified on the original meter after restoring stock; no second unit has been tested. A successful read check alone is not proof of a successful flash/restore.
+Follow [INSTALL-PREBUILT.md, step 5](INSTALL-PREBUILT.md#5-return-to-stock-restore-nor-first-then-the-original-app)
+or [FIRST-BACKUP.md, step 7](FIRST-BACKUP.md#7-restore-original-tester-functionality)
+for the exact commands. **Restore NOR first, then the original application.**
+A stock application file alone does not restore overwritten game-data sectors.
 
-## Keep the private workspace
+Stop the Web controller before using the USB CLI. Enter native DFU, then start
+the independent service while holding physical OK to prevent engine
+initialization. Verify that `apdo-host info` shows no rendered frames before
+`restore-nor`; pausing an initialized engine does not enable storage writes.
+After complete NOR readback succeeds, return to DFU, flash the qualified original
+restore package, and start it only after application/loader verification succeeds.
+Confirm the original UI and functions physically.
 
-The GitHub repository contains source and documentation. It excludes the original firmware, bootloader, calibration/settings data, serial, generated packages, and USB logs. A fresh clone is not a recovery backup.
+The service never programs the protected final 1 MiB. A tail mismatch, unrecognized
+current prefix, wrong physical port or failed readback must stop the procedure.
+Do not force a mismatch, retry an ambiguous programming failure, write a
+loader/ICG or substitute another unit's backups.
 
-Keep the original `backups/`, `artifacts/`, `tools/`, `vendor/`, and ignored `local/device.json`, plus another copy of the recovery material. The configured stock directory includes:
-
-- `stock-app.bin` and `stock-restore.mencrypt`;
-- `loader-00000004-00003fff.bin`, SHA-256, and evidence of two matching reads;
-- calibration and internal-tail snapshots;
-- `external-first-3MiB.bin`, acquired through stock firmware.
-
-The configured external backup directory includes `external-4MiB.bin` and `verified.json`, recording two matching reads, its SHA-256, and agreement with the stock 3 MiB prefix.
-
-## Normal complete restoration
-
-Connect only the side HID port to the PC, with the measurement ports disconnected. Use a prepared workspace with that meter's verified stock restore package, full original NOR backup, loader baseline and configured paths:
-
-```powershell
-.\scripts\restore-stock.ps1
-```
-
-The script uses `local/device.json` and the built host CLI. It enters native DFU, restarts the game maintenance service, pauses gameplay, validates the original full-NOR backup and protected tail, restores the original first 3 MiB, and reads back all 4 MiB. It then restores the original application, verifies the whole application and unchanged loader, and checks that stock HW2.3 firmware 2.0.7 starts.
-
-The final 1 MiB is never erased or programmed by the game service. A protected-tail mismatch stops restoration. Each run creates new timestamped evidence directories under ignored `artifacts/`.
-
-Close the controller and let its USB helper exit before starting recovery. After a mode switch, the host waits up to eight seconds for a read-only native-loader identity check on the same physical port to succeed, including WinUSB interface readiness. Only these read probes are retried; erase/program transfers are never retried automatically. A readiness timeout stops before programming and requires checking the device state before another attempt.
-
-## If the game does not respond
-
-Disconnect the HID cable. Hold Exit while reconnecting it, then release Exit once the native update/DFU screen appears. This entry path is independent of application USB. Run the normal restoration script from that state.
-
-If the custom application itself cannot start, first reinstall the locally saved, verified DOOM package to regain the external-NOR restoration service:
+If application USB is unavailable, unplug HID and reconnect on the same physical
+PC port while holding Exit; release it at the native update/DFU screen. Preserve
+read-only retained-RAM diagnostics with:
 
 ```powershell
-. .\scripts\env.ps1
-. .\scripts\local-config.ps1
-$cli = '.\vendor\km003c-firmware\target\release\km003c-host-cli.exe'
-& $cli flash $taskDeviceConfig.doom_image --evidence ('artifacts/rescue-' + (Get-Date -Format yyyyMMdd-HHmmss))
-if ($LASTEXITCODE -ne 0) { throw 'Custom application recovery failed' }
-.\scripts\restore-stock.ps1
+independent/target/release/apdo-host.exe diagnostics STOCK_BACKUP NEW_OUTPUT_DIRECTORY
 ```
 
-The flash command verifies the application's full readback and the byte-exact private loader baseline. It does not replace the bootloader or ICG. The stock application alone is not the complete recovery sequence after game resources have replaced the original NOR prefix.
+Keep originals and failure evidence offline before deciding how to proceed.
+Do not start the stock app after a failed NOR restoration. If the independent
+service cannot start, this document does not promise a repair path for that
+failure; native DFU availability alone does not prove complete recoverability.
 
-## Offline evidence check
+The owner reported the complete independent initial-install/stock-restore
+workflow successful on the same HW2.3 unit on **2026-10-31**. See
+[VALIDATION.md](VALIDATION.md) for scope and evidence attribution. Backups are
+private, and GitHub does not supply replacement factory data.
 
-For new bootstrap acquisitions, verify the stock and native-DFU evidence without USB:
-
-```powershell
-.\bootstrap\target\release\km003c-backup.exe verify --stock backups/my-device-stock --require-dfu
-```
-
-The independent verifier does not check a later full-NOR backup or prove a completed restoration. To check the complete backup set configured in `local/device.json`:
-
-```powershell
-python scripts/check-recovery.py
-```
-
-For bootstrap manifests this invokes the independent offline verifier, checks full-NOR length/hash, two matching reads, stock-prefix agreement and protected-tail hash, and requires the stock restore package to exist. It does not assert that a restoration has been performed or independently parse the restore container. Device writes validate that container through the host library.
-
-For the original experiment's legacy backup layout, the checker additionally expects its recorded complete-restoration evidence. Use `--config <saved-original-config.json>` to inspect that historical set after switching the active configuration to a newer snapshot set. Neither mode contacts USB. Keep newer stock/NOR snapshots together if native settings or recordings have changed; protected-tail mismatches are a stop condition, not something to override.
+The former `scripts/restore-stock.ps1`, embedded-baseline host and its commands
+are preserved on [legacy](https://github.com/inuchanbt/apdo-doom-on-km003c/tree/legacy).
+They are not the restoration procedure for the independent build. See
+[branch migration](BRANCHES.md).

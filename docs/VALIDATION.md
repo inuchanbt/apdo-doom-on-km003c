@@ -1,143 +1,71 @@
-# Validation record
+# Validation — independent firmware
 
-Recorded on 2026-10-29 (Japan time) for one POWER-Z KM003C HW2.3 unit, originally running firmware 2.0.7. Device identifiers and raw acquisition files remain private.
+## Hardware round trip reported on 2026-10-31
 
-## Device checks
+The meter owner confirmed: the **new independent procedure from initial
+installation through complete restoration** worked on the actual meter.
+This refers to the same **KM003C HW2.3 originally running stock 2.0.7** used
+throughout development, not a second previously untouched device.
 
-- Read the original application, loader, calibration, internal tail, and external NOR twice and verified agreement.
-- Confirmed physical Exit-at-power-on entry to native DFU and application-to-DFU recovery.
-- Verified full application readback and unchanged loader after updates.
-- Uploaded the 2,802,000-byte Freedoom E1M1 pack and verified its complete readback.
-- Compared the protected final 1 MiB of external NOR before and after game-data installation.
-- Observed approximately 171–173 ms per frame, about 6 fps.
-- The user confirmed the 3D game display and movement, turning, and firing on the device.
-- The user unplugged/replugged the HID cable and confirmed automatic startup and working controls on final firmware v4.
-- Restored the original external NOR, verified all 4 MiB against the original backup, restored the stock application, verified the unchanged loader, and confirmed stock 2.0.7 startup.
-- Reinstalled and verified the final DOOM application and game data after the recovery test. The working game remains installed.
+The documented workflow covers original stock/DFU acquisition and qualification,
+application installation, complete original NOR acquisition, game-data
+installation and complete restoration in NOR-then-stock-app order. The tools
+require byte/hash checks and protected-tail/loader checks along that path. The
+latest end-to-end result is **owner-reported**; no new private raw acquisitions,
+readback logs or evidence manifests were independently inspected for this
+repository update. It must not be presented as an additional automated audit.
 
-Local evidence includes `artifacts/final-verification.json`, `flash-final/`, `game-data-final/`, timestamped `restore-nor-*/` and `restore-stock-*/` directories, and `backups/`. These files are excluded from Git because they include device-specific material.
+This confirms a working round trip on one unit. It does not establish recovery
+from interrupted programming, compatibility with other units/revisions, the
+manufacturer's GUI updater, or exhaustive charging-protocol/PD conformance.
+The project remains experimental and backup requirements remain in force.
 
-## Build and host checks
+## Previously recorded engineering checks
 
-- The C host harness exercised 140 game frames with forward movement, turning, and firing, followed by menu input. Captured frames had changing RGB565 output.
-- Host and firmware Clippy checks passed with `-D warnings`.
-- The Rust workspace's 33 existing tests passed.
-- Rebuilding with the saved firmware script produced a byte-identical raw application.
+- Independent ARM firmware and Windows host compile; Clippy checks passed.
+- Offline/model/HTTP tests cover the licensed clock/interrupt/timer subset,
+  binary wire bounds, stock/DFU backup validation, image packaging, storage
+  planning/round-trip restoration, source preparation and controller reconnects.
+- Real Freedoom engine checks cover square projection parity, cached reads,
+  movement/turn/fire/menu, full HUD redraw and input cadence after slow draws.
+- The startup banner's archive/asset hashes and captured device pixels matched
+  the expected original Freedoom render; the banner build auto-started DOOM.
+- On the same HW2.3 device, independent application flashing and complete
+  readback, unchanged loader, native DFU return and verified restart were checked.
+  PC input changed captured views and subsequently released; preview is 120×120.
+- The published `.mencrypt` was rebuilt byte-for-byte against that device-tested
+  package and audited against all 225,256 installed application bytes.
+- The explicit release source archive built the Windows host, ARM application
+  and standalone backup utility offline from bundled sources with a fresh Cargo
+  home and no device backup. The eight uploaded assets were downloaded and
+  checked against the verified local files. See the release manifest/checksums.
 
-The README image is a host render. Host rendering and compilation checks supplement the device checks; they are not evidence of hardware operation by themselves.
+For implementation details and original test scope see [INDEPENDENT.md](INDEPENDENT.md).
+For repeatable software checks see [BUILD.md](BUILD.md).
 
-The public repository subsequently parameterizes local recovery paths and the build-time serial and adds an explicit `game-backup --stock-prefix` argument. These host/build changes do not alter the installed v4 game image. Publication checks and the exact pushed revision are available in Git history.
+## Main integration checks on 2026-10-31
 
-## PC controls (v5)
+The merged application, native engine, protocol, backup utility and host sources
+match the published independent branch; this integration changes documentation,
+removes legacy-only files and fixes the browser preview layout. The 48 software
+tests passed (20 hardware models, 3 packaging/storage, 2 wire bounds, 9 backup,
+12 controller/HTTP and 2 source-preparation tests), along with Rust formatting
+and the pinned engine-source check. No device was flashed for this integration.
 
-The subsequent v5 update adds a separate leased-input endpoint and browser controller. Its whole application was read back and the loader was unchanged. A 300 ms forward command was accepted by the device and a later read-only input status showed all remote/applied keys released. The user confirmed movement, turning, and firing from the browser keyboard. The game engine and NOR game resources are unchanged. See [PC-CONTROLS.md](PC-CONTROLS.md) for input handling and focused test coverage.
+Browser inspection confirmed a square preview at narrow desktop, HD, mobile
+and 4K widths, with no horizontal overflow. On the reported 909×1184 viewport,
+the frame changed from 413×760 to 413×413. The meter was not connected to the
+independent service during this layout check; it verifies the browser layout,
+not another hardware gameplay test.
 
-## Screen preview (v6)
+## Branch and release history
 
-The v6 application was read back completely and its loader was unchanged. An actual 120×90 RGB565 snapshot from the device was retrieved, decoded, and displayed in the browser. The user confirmed live PC display and keyboard actions reflected in that image. Pausing image transfers kept gameplay and input active. The Rust suite passed 40 tests and the Python suite passed eight tests, including snapshot consistency, clipping, image bounds, byte order, orientation, padding, and HTTP handling. Raw BMP captures and transport timings are kept locally in `artifacts/`. See [SCREEN-CAPTURE.md](SCREEN-CAPTURE.md) for the capture path and performance limitations.
+`main` now contains the independent implementation. Historical v5–v8 measurements,
+checks and the earlier stock/PD restoration record are retained with the code on
+[legacy](https://github.com/inuchanbt/apdo-doom-on-km003c/blob/legacy/docs/VALIDATION.md).
+Those historical results are not new independent-firmware measurements.
 
-## Physical LCD controls (v7)
-
-The v7 application was fully read back and the native loader was unchanged. The user confirmed physical brightness changes, left/right rotation, and correct display including the HUD. The Rust suite passed 41 tests and the HTTP/BMP suite passed nine, including display value bounds and same-origin enforcement. Rotation uses the board driver's streamed quarter-turn transform; it clears the physical LCD and invalidates the engine's status-bar redraw state. A host engine check clears its simulated LCD and verifies that a redraw restores all status-bar pixels without advancing game time.
-
-## USB late connection and reconnection
-
-The server was started with the HID cable unplugged and continued retrying beyond five failed helper sessions. After the cable was connected, live screen capture and keyboard control resumed; the user confirmed both on the same server. No firmware update was needed. Eleven Python tests pass, including helper failure/restart, clearing held keys across connections, rejecting stale helper output, preserving preview preference, accepting restarted device snapshot counters, and cancelling retries on Stop.
-
-## Responsive Web controller
-
-The preview and controls use two columns from 900 CSS pixels wide; narrower windows stack them. The layout was inspected at 1280×600, 1280×720, 1366×668, 1920×1080, 3840×2160, 900×600, and 390×844. Desktop layouts fit within the viewport with the footer visible; phone width uses vertical scrolling without horizontal overflow. The short-window check also verified that button text fits. Live capture and keyboard enable/release were checked, and the README screenshot was refreshed at 1280×720.
-
-## Independent first-backup workflow
-
-The new `bootstrap/` tool builds separately from the board workspace and uses no private firmware include. A cold release build also passed from a separate copy containing only the bootstrap crate and its environment/build scripts, with no `local/`, `backups/`, or `vendor/`, no configured serial, and a separate target directory (cached public Cargo dependencies, offline). Bootstrap acquisition/verification tests (9) and Python baseline-import tests (7) passed using synthetic files and no USB. The board host workspace tests passed (42, including the new installed-backup packaging test), and both host workspaces passed Clippy with warnings denied. The saved original stock application was packaged offline with exact installed-byte roundtrip validation; reusing the output path was rejected.
-
-The initial software-only checks on 2026-10-29 did not constitute an end-to-end stock-device acquisition. No firmware was flashed during those initial checks. The following section records the subsequent hardware verification. See [FIRST-BACKUP.md](FIRST-BACKUP.md) for the staged stock/DFU/full-NOR procedure.
-
-## Bootstrap hardware check (2026-10-30)
-
-The independent tool was subsequently tested on the original HW2.3 unit after restoring its stock 2.0.7 application and all 4 MiB of original external NOR. Full application/NOR readback and unchanged loader were verified. The owner reported normal operation of the PD functions they checked after restoration; other charging protocols and exhaustive PD conformance were not tested.
-
-- Stock acquisition read all five regions twice, checked the committed application CRC, identities, lengths and SHA-256 records, and passed offline verification. Every region also matched the earlier original backup byte for byte.
-- A restore package made from the new application backup was byte-identical to the previously verified stock restore package.
-- The tool rejected the custom RPC application as a stock source, rejected DFU qualification while still in the stock application, and refused a fresh baseline import without DFU evidence.
-- The owner manually entered native DFU with Exit held on the same USB port. The tool read the loader and complete stock application twice; both matched the stock acquisition. Offline verification with `--require-dfu` passed.
-- The real source-preparation importer accepted the qualified acquisition in a separate private workspace with no existing loader baseline, copied the exact loader, and passed its subsequent check.
-- The exact previously installed DOOM v7 image was reinstalled, with full application readback and unchanged loader verified.
-
-After the owner's stock PD checks, the NOR prefix differed from the earlier acquisition by 114 bytes in two sectors, and its protected tail had also changed. The full-NOR acquisition correctly refused the stale stock-prefix reference before any game-resource write. A fresh stock acquisition independently confirmed the changed prefix. A new stock/DFU set and matching two-read full-NOR backup were then acquired, copied into private `backups/`, and selected together in the local configuration. The original backups and previous configuration were retained. No verification flags were overridden.
-
-The same Freedoom E1M1 pack was subsequently restored and read back, with the current protected tail unchanged. The updated host completed automatic stock/RPC-to-DFU transitions and a final live application/loader verification. DOOM auto-started after the final restart, and the controller again captured a live 120×90 game frame at its existing local URL.
-
-During preparation, USB handoff briefly preceded interface availability and stopped before programming. The host now waits for read-only loader identity probes to succeed on the selected physical port, with an eight-second deadline. It never retries a flash data transfer. Three focused readiness tests passed (10 host-library tests total), as did workspace Clippy with warnings denied.
-
-The offline recovery checker now supports complete bootstrap snapshot sets and an explicit configuration path for historical evidence. Seven synthetic tests cover prefix drift, corruption/truncation, protected-tail hashes, read evidence and incomplete restoration pairs. Both the new snapshot set and a complete historical restoration record passed checks. Snapshot consistency is kept distinct from proof of a completed hardware restoration.
-
-The owner confirmed physical game controls after restoring DOOM. Their normal-browser tab still pointed to an old, stopped server port and reported `Failed to fetch`; navigating it to the active server restored the connection. Idle-tab zero-input heartbeats were also removed so an inactive page cannot repeatedly clear another page's controls. With the in-app page and Opera both open, Opera keyboard input produced accepted and applied forward, right-turn and fire masks on the meter, followed by zero remote/applied keys. A screenshot and input observations are kept with the private run evidence.
-
-Raw acquisitions, hashes, restore packages, logs and comparison records remain in ignored `artifacts/bootstrap-device-check-20261030-*/`. This validates one restored unit, not a second untouched meter or every firmware/hardware revision.
-
-
-## Rendering throughput, square output and frame cadence (v8, 2026-10-30–31)
-
-DWT measurements on the same HW2.3 meter separated engine work, physical NOR
-reads, LCD blits and capture updates. The original starting-scene median was
-176.232 ms per frame, including 124.412 ms in NOR reads and 11.293 ms in LCD
-blits. SRAMH placement and `-O2` alone had a small effect. A broad 64-byte-line
-cache increased traffic and was rejected. The retained 16-byte-line short-read
-cache and qualified 16 MHz reads reduced letterbox engine work to 117.993 ms,
-and the square viewport to 104.228 ms. These are engine-work measurements with
-preview off; they exclude the subsequent Steady scheduling wait.
-
-On each final-variant startup the firmware compared all 2,802,000 game bytes at
-original and faster read speeds before enabling 16 MHz. Both variants reported
-complete agreement. The pack format and external NOR contents were unchanged.
-Every application update used complete readback and unchanged-loader checks.
-The engine arena address was verified as `0x1fff8000`.
-
-The owner confirmed that the square game worked and felt smoother, then reported
-uneven motion. A held-turn diagnostic found no angle stops in its 160 samples,
-but engine work varied from 43.19 to 110.57 ms. Steady mode now targets four game
-tics per frame (8.75 fps), with an Uncapped comparison mode. On the same boot,
-155 retained samples per mode measured a median 114.288 ms Steady frame interval
-versus 55.267 ms Uncapped. Steady's 90th percentile was 114.289 ms and maximum
-117.981 ms, compared with 103.637/113.189 ms Uncapped; interval standard deviations
-were 0.333/19.555 ms. All 144 observed consecutive Steady pairs advanced four tics.
-The owner subsequently confirmed reduced hitching and more even motion on the
-meter and PC controls with preview off.
-
-The host regression reproduces stale turn commands after a simulated 100 ms draw
-with the legacy input queue. With commands built just before simulation, turn
-press and release both apply in the first frame. Projection checks match the
-original 320/160-column angle tables exactly; cached range reads, 140 gameplay
-frames, menu input and complete HUD redraw checks pass. The Rust workspace passed
-46 tests and host/DOOM firmware Clippy with warnings denied. Twelve local HTTP
-checks and seven recovery-preflight checks passed. Normal and square builds pass.
-
-The Web selector was verified against the acknowledged physical pacing state;
-changing pacing preserved LCD rotation at 0 degrees and released input. The final
-square application, Steady mode and the controller remain running. The new
-control still fits a 1280×720 viewport (footer bottom about 687 CSS pixels), and
-the README screenshot was refreshed. Raw measurements, update evidence and
-packages remain in ignored `artifacts/performance-20261030/`; sanitized medians
-are in [performance-v8.json](performance-v8.json). See [performance notes](PERFORMANCE.md).
-
-
-## Binary-release preparation (2026-10-31)
-
-The square v8 candidate was rebuilt from the implementation recorded at
-`6280221d8364dc7ac329f71944340fda33a1e270`. Its `.mencrypt` and raw application
-were byte-identical to the tested files. After normalizing the loader-committed
-size/CRC metadata, the complete application also matched the verified installed
-readback. The candidate is application-only at `0x4000`; known private serial
-encodings and the private loader blob were absent, and firmware sources contain
-no recovery-image includes. The local board-host executable is excluded from
-release assets because it embeds the private loader baseline and can contain
-the configured serial.
-
-No device was flashed for this release-preparation work. The container's use in
-the official GUI updater remains untested, and no game data is embedded. The
-local candidate, SHA-256 file, audit report and release-note draft remain under
-ignored `artifacts/release-v8-candidate/`. No binary was published: upstream board
-source/binary redistribution terms and a complete licensed corresponding-source
-bundle remain outstanding. See [binary-release requirements](BINARY-RELEASE.md).
+The `v0.1.0-independent` tag and its binary/source/checksum assets are unchanged.
+They record the evidence available when published, before the owner's latest
+round-trip confirmation. Current documentation and release notes record the
+subsequent confirmation without rewriting the original asset evidence.
