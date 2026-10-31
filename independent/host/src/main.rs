@@ -93,7 +93,7 @@ fn settings(s: &[u32; 8]) {
 fn state(s: &[u32; 8]) {
     output(
         json!({"accepted":true,"running":s[1]!=0,"frames":s[0],"frame_ms":s[2],
-    "remote_buttons":s[6],"applied_buttons":s[7]&255,"menu_active":s[7]&256!=0}),
+    "remote_buttons":s[6],"applied_buttons":s[7]&255,"menu_active":s[7]&256!=0,"boot_splash":s[7]&wire::BOOT_SPLASH_FLAG!=0}),
     );
 }
 struct Capture {
@@ -122,7 +122,7 @@ fn control(mut client: Client, mut preview: bool) -> Result<()> {
     let mut last_capture = Instant::now();
     let mut capture: Option<Capture> = None;
     let s = client.info()?;
-    let mut running = s[1] != 0;
+    let mut preview_ready = s[1] != 0 || s[7] & wire::BOOT_SPLASH_FLAG != 0;
     settings(&s);
     state(&s);
     loop {
@@ -172,15 +172,15 @@ fn control(mut client: Client, mut preview: bool) -> Result<()> {
             };
             client.call(wire::INPUT, mask as u32, 0)?;
             let status = client.info()?;
-            running = status[1] != 0;
+            preview_ready = status[1] != 0 || status[7] & wire::BOOT_SPLASH_FLAG != 0;
             state(&status);
-            if !running {
+            if !preview_ready {
                 capture = None;
             }
             last_poll = Instant::now();
         }
         if preview
-            && running
+            && preview_ready
             && capture.is_none()
             && last_capture.elapsed() >= Duration::from_millis(650)
         {

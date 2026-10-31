@@ -2,7 +2,11 @@
 //! The executor's game task alone owns QSPI, game state and display settings.
 use crate::{board, bus::Bus};
 use apdo_protocol as wire;
-use core::{cell::Cell, ptr};
+use core::{
+    cell::Cell,
+    ptr,
+    sync::atomic::{AtomicBool, Ordering},
+};
 use embassy_sync::{
     blocking_mutex::{Mutex, raw::CriticalSectionRawMutex},
     channel::Channel,
@@ -20,6 +24,7 @@ static mut FROZEN: [u8; wire::PREVIEW_BYTES] = [0; wire::PREVIEW_BYTES];
 static mut SNAPSHOT: u32 = 0;
 static mut SNAPSHOT_FRAME: u32 = 0;
 static mut EXIT_SINCE: Option<u64> = None;
+static BOOT_SPLASH: AtomicBool = AtomicBool::new(false);
 unsafe extern "C" {
     fn km_doom_init();
     fn km_doom_step();
@@ -35,7 +40,7 @@ pub fn input(buttons: u8) {
 }
 pub fn snapshot() -> Option<(u32, u32)> {
     let state = info();
-    if state[1] == 0 {
+    if state[1] == 0 && !BOOT_SPLASH.load(Ordering::Relaxed) {
         return None;
     }
     // Called from an executor task: no frame drawing can interleave this copy.
@@ -79,7 +84,6 @@ pub async fn task() {
     board::w32(0x200f0fc4, 60);
     let mut signature = [0; 8];
     bus.read(0, &mut signature);
-    let boot = Instant::now();
     let mut auto = &signature == b"DMCDOOM\0";
     let mut initialized = false;
     let mut running = false;
@@ -89,6 +93,8 @@ pub async fn task() {
         BUS = &raw mut bus;
         ptr::write_bytes(ptr::addr_of_mut!(km_engine_ram), 0, 32768);
     }
+    show_splash();
+    let boot = Instant::now();
     loop {
         let start = Instant::now();
         if board::buttons() & 2 != 0 {
@@ -111,6 +117,8 @@ pub async fn task() {
                     bus.clear();
                     if initialized {
                         unsafe { km_doom_redraw() }
+                    } else {
+                        show_splash();
                     }
                 }
                 wire::PACING if a < 2 => smooth = a != 0,
@@ -123,6 +131,8 @@ pub async fn task() {
                     auto = false;
                     if !initialized {
                         unsafe { km_doom_init() };
+                        bus.clear();
+                        BOOT_SPLASH.store(false, Ordering::Relaxed);
                         initialized = true;
                     }
                     running = true;
@@ -157,6 +167,8 @@ pub async fn task() {
             unsafe {
                 km_doom_init();
             }
+            bus.clear();
+            BOOT_SPLASH.store(false, Ordering::Relaxed);
             initialized = true;
             running = true;
         }
@@ -200,7 +212,12 @@ pub async fn task() {
                 rotation as u32,
                 smooth as u32,
                 remote as u32,
-                keys | (menu as u32) << 8,
+                keys | (menu as u32) << 8
+                    | if BOOT_SPLASH.load(Ordering::Relaxed) {
+                        wire::BOOT_SPLASH_FLAG
+                    } else {
+                        0
+                    },
             ])
         });
         // Service USB while preserving the validated four-tic frame interval.
@@ -209,6 +226,12 @@ pub async fn task() {
             Timer::at(start + Duration::from_micros(4_000_000 / 35)).await;
         }
     }
+}
+fn show_splash() {
+    crate::splash::draw(|x, pixels| unsafe {
+        km_column(i32::from(x), 0, 240, pixels.as_ptr());
+    });
+    BOOT_SPLASH.store(true, Ordering::Relaxed);
 }
 fn check_exit() {
     let now = Instant::now().as_millis();

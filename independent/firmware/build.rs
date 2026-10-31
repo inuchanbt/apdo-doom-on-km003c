@@ -1,5 +1,6 @@
 use std::{env, fs, path::PathBuf};
 fn main() {
+    println!("cargo:rerun-if-changed=assets/freedoom-banner.rgb565");
     println!("cargo:rerun-if-env-changed=APDO_SAFE_NOR");
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     for file in ["memory.x", "application.x", "device.x"] {

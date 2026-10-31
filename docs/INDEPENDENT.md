@@ -40,6 +40,12 @@ LCD/NOR transfers belong to the game task; USB never accesses QSPI concurrently.
 The initial panel setup uses generic ST7789 sleep-out, pixel format, orientation,
 inversion and display-on commands rather than the old board initialization table.
 
+The original Freedoom Phase 1 menu logo appears centered at 216x50 during the
+existing three-second boot window and stays visible while game data is checked.
+It is also captured by the PC preview before the game runs. Holding OK still
+cancels automatic startup; the banner then remains on the service screen.
+The ROM asset adds 11,770 bytes and uses a single 480-byte column for drawing.
+
 The square renderer keeps the 90-degree horizontal field of view and complete
 HUD. Steady mode retains a four-tic (114.286 ms) frame target. The short-read cache
 and 32 KiB SRAMH arena are unchanged. Faster 16 MHz NOR reads require a full
@@ -71,9 +77,11 @@ an application is a separate command with another image comparison.
 ## Validation status
 
 - Independent ARM firmware and Windows host compile; Clippy checks pass.
-  The final local application is 212,820 bytes (`2.0.7-apdo1`).
+  The final local application is 225,256 bytes (`2.0.7-apdo2`).
 - 48 offline/model/HTTP tests pass across the hardware subset, wire format,
   packager/storage planner, backup utility, source preparation and controller.
+- Startup banner: original archive/asset hashes verified; device preview pixels
+  exactly match the expected logo render. The banner build also auto-started DOOM.
 - Firmware dependency inspection excludes the old board crates, generated PAC
   and PD stack.
 - Clock/routing/timer model tests and wire boundary tests pass.

@@ -148,7 +148,7 @@ async function status() {
     usbConnected=!!state.connected;
     $("enable").disabled=!usbConnected;
     document.querySelectorAll("[data-mask]").forEach(button=>{button.disabled=!usbConnected;});
-    $("connection").textContent=state.connected ? (state.running ? "Meter connected · game running" : "Meter connected · waiting for game") : "Waiting for KM003C · reconnecting automatically…";
+    $("connection").textContent=state.connected ? (state.running ? "Meter connected · game running" : state.boot_splash ? "Meter connected · Freedoom banner" : "Meter connected · waiting for game") : "Waiting for KM003C · reconnecting automatically…";
     $("dot").classList.toggle("connected",state.connected);
     $("pacing").disabled=pacingBusy || !state.connected || !state.pacing?.supported;
     if(!pacingBusy && state.pacing?.supported) $("pacing").value=state.pacing.smooth ? "1" : "0";

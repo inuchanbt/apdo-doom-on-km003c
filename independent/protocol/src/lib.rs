@@ -21,6 +21,7 @@ pub const INVALID: u8 = 1;
 pub const BUSY: u8 = 2;
 pub const STALE: u8 = 3;
 pub const PREVIEW_BYTES: usize = 120 * 120 * 2;
+pub const BOOT_SPLASH_FLAG: u32 = 1 << 9;
 pub const GAME_LIMIT: u32 = 0x300000;
 pub const ERASE_CONFIRM: u32 = 0x4150444f;
 

@@ -93,3 +93,17 @@ The complete development sequence, including double acquisition of the original
 NOR, protected-tail checks, game installation and ordered stock restoration, is
 in [FIRST-BACKUP.md](FIRST-BACKUP.md). Storage programming has model tests; the
 independent full install/restore sequence still needs native hardware qualification.
+
+## Startup banner asset
+
+The original Freedoom 0.13.0 Phase 1 `M_DOOM` logo is checked in as a small RGB565
+asset, with its BSD notices and provenance; ordinary builds need no additional
+image tools. To reproduce or check it using the verified official archive:
+
+```powershell
+python scripts/extract-splash.py --zip vendor/dmc100-doom/dl/freedoom-0.13.0.zip --check
+```
+
+Omit `--check` to regenerate the asset and metadata. The script uses only Python's
+standard library and refuses a different archive hash. No game-pack/NOR rewrite
+is needed for this banner; it is part of the application image.

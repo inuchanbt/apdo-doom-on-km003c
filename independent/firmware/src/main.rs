@@ -5,6 +5,7 @@ use cortex_m_rt::{entry, exception};
 mod board;
 mod bus;
 mod game;
+mod splash;
 mod usb;
 
 // Native loader metadata ABI. This application never embeds a loader image.
@@ -16,7 +17,7 @@ const fn metadata() -> [u8; 64] {
         m[n] = 255;
         n += 1;
     }
-    let fields: [&[u8]; 3] = [b"KM003C", b"2.0.7-apdo1", b"2026.10.31"];
+    let fields: [&[u8]; 3] = [b"KM003C", b"2.0.7-apdo2", b"2026.10.31"];
     let mut f = 0;
     while f < 3 {
         n = 0;

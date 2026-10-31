@@ -45,3 +45,10 @@ The repository's own MIT license and the README's hardware-risk notice do not
 grant additional rights in upstream code. A future release must retain required
 license notices and supply the corresponding source/build material; the automatic
 GitHub source archive does not include ignored upstream checkouts.
+
+The startup banner in `independent/firmware/assets/freedoom-banner.rgb565` is the
+original `M_DOOM` menu logo extracted from Freedoom 0.13.0 Phase 1, flattened onto
+black and converted to RGB565. It retains Freedoom's modified BSD license, not
+the surrounding MIT code license. Required COPYING/CREDITS are retained under
+`notices/freedoom-0.13.0/`. The adjacent JSON records exact archive/lump/asset hashes;
+`scripts/extract-splash.py` reproduces the pixels from the verified official ZIP.

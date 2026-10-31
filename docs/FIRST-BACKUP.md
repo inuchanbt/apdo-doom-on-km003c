@@ -73,7 +73,7 @@ independent/target/release/apdo-host.exe nor-backup backups/stock-original backu
 Flash compares the loader before programming, verifies every app byte afterwards
 and confirms unchanged loader bytes. Failure stays in DFU without retrying writes.
 The new app starts a DOOM-only service. With stock NOR contents it does not start
-the engine and the LCD remains black; use the PC helper to confirm service readiness. The backup command pauses automatic boot, reads all 4 MiB twice and
+the engine and keeps the Freedoom banner visible; use the PC helper to confirm service readiness. The backup command pauses automatic boot, reads all 4 MiB twice and
 requires its first 3 MiB to match the qualified stock acquisition. The full image,
 SHA-256 and qualification are saved. If game data was already installed, this
 command refuses to describe that prefix as original stock data.
