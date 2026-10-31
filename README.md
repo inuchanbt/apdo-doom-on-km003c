@@ -8,6 +8,29 @@
 
 **Yes, the POWER-Z KM003C USB-C power meter runs DOOM.** More precisely, it runs the low-memory DOOM engine with Freedoom's E1M1 data on its own MCU. The PC builds, flashes, and verifies it; gameplay runs on the meter.
 
+## Independent experimental firmware download
+
+**[Download v0.1.0-independent — Pre-release](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.0-independent)**
+
+This download is the independent DOOM-only firmware, with the Freedoom startup
+banner. **The code/build instructions below remain the legacy v8 implementation.**
+Use the tagged [prebuilt guide](https://github.com/inuchanbt/apdo-doom-on-km003c/tree/v0.1.0-independent/docs/INSTALL-PREBUILT.md) and
+[independent README](https://github.com/inuchanbt/apdo-doom-on-km003c/tree/v0.1.0-independent/README.md) for the new release.
+The release supplies the application-only `.mencrypt`, separate Freedoom E1M1
+pack, complete corresponding-source archive, license notices and SHA-256 checksums.
+
+**Flashing can permanently disable the meter or lose factory data. Recovery is
+not guaranteed; repair/replacement may be necessary.** Only one HW2.3 unit,
+originally stock 2.0.7, was tested. DOOM replaces measurement/PD/tester functions.
+Your own verified stock/DFU backup and restore package are required before flashing;
+a full original 4 MiB NOR backup is required before game-data writes. Returning
+to stock requires both original NOR data and the stock app in the documented order.
+Connect only side HID; leave both measurement connectors empty. Never write a
+loader/ICG, substitute another unit's backup or force a failed check.
+**The new full first-install/NOR-write/restore path and official graphical-updater
+installation are not hardware-qualified.** This is an unofficial experimental
+release, not a compatibility or recovery guarantee.
+
 ## Flashing risks — read first
 
 **This experimental firmware can leave your meter unusable and can cause loss of
@@ -33,9 +56,9 @@ or software faults can prevent normal boot or USB access.
   measurement/PD application. This is not an official manufacturer update;
   warranty/support treatment has not been established.
 
-**Prebuilt firmware is not currently published:** the upstream board firmware's
-redistribution license is unresolved. A risk disclaimer does not replace that
-permission. See [binary-release status and requirements](docs/BINARY-RELEASE.md).
+**The legacy v8 binary is not published:** its board-firmware redistribution
+terms remain unresolved. The independent Pre-release linked above excludes that
+board code/PAC and is supplied with corresponding source and notices.
 
 **[▶ Watch the hardware demo — 60 seconds · MP4 · 5.1 MB](docs/videos/apdo-doom-on-km003c.mp4)**
 
@@ -61,7 +84,7 @@ permission. See [binary-release status and requirements](docs/BINARY-RELEASE.md)
 
 There is no sound, save support, persistent settings, or supported transition to another map in this build. The DOOM configuration does not start the meter's measurement or PD tasks. Use the side HID port for power and leave the measurement connectors disconnected.
 
-This is an experimental port verified on **one unit**, not a compatibility claim for every HW2.3 meter. Updates require an exact match with a privately saved loader baseline. Stock firmware, bootloader dumps, calibration data and device serials are excluded. Generated firmware is excluded from the source tree; any future eligible binaries would be separate GitHub Release assets, subject to the [release requirements](docs/BINARY-RELEASE.md).
+This is an experimental port verified on **one unit**, not a compatibility claim for every HW2.3 meter. Updates require an exact match with a privately saved loader baseline. Stock firmware, bootloader dumps, calibration data and device serials are excluded. Generated firmware is excluded from the source tree; independent release binaries are separate GitHub Release assets, with the tested/untested scope and risks linked above. This section describes legacy v8.
 
 ## Controls
 
@@ -116,7 +139,7 @@ This reconstructs the source without accessing USB. For the **first backup**, bu
 .\scripts\build-firmware.ps1
 ```
 
-These build commands do not flash a device. There is no universal installer or published prebuilt firmware release; [licensing and release requirements](docs/BINARY-RELEASE.md) still need to be resolved.
+These build commands do not flash a device. These are legacy v8 build commands, not instructions for the independent Pre-release. Use the tagged prebuilt guide linked above; there is no universal installer.
 
 ## Recovery and verification
 
