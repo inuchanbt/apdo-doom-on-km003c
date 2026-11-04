@@ -57,8 +57,9 @@ This is an unofficial, experimental project, supplied without project warranty; 
 
 ![Web controller](docs/images/km003c-web-controller.jpg)
 
-[Watch the hardware demo — 60 seconds](docs/videos/apdo-doom-on-km003c.mp4).
-The recording shows the earlier implementation; the game still runs on the meter.
+[Watch KWS-X1 and KM003C running DOOM together — 60 seconds · MP4 · 6.9 MB](docs/videos/apdo-doom-on-km003c.mp4).
+Both meters run the game and render on their own MCUs. The PC supplies controls
+to both and game data to the [KWS-X1](https://github.com/inuchanbt/apdo-doom-on-kws-x1).
 
 ## Play from the PC
 

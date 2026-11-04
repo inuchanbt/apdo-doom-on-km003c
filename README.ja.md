@@ -49,8 +49,9 @@
 
 ![Web操作パネル](docs/images/km003c-web-controller.jpg)
 
-[実機デモ動画 — 60秒](docs/videos/apdo-doom-on-km003c.mp4)。動画は旧実装のものです。
-独立版もゲーム処理はKM003C本体で行います。
+[KWS-X1とKM003CでDOOMを同時プレイ — 60秒・MP4・6.9MB](docs/videos/apdo-doom-on-km003c.mp4)。
+2台とも本体のMCUでゲーム処理と描画を行います。PCは両方の操作と、
+[KWS-X1版](https://github.com/inuchanbt/apdo-doom-on-kws-x1)のゲームデータ供給を担当します。
 
 ## PCから遊ぶ
 
