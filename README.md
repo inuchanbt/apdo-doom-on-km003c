@@ -106,3 +106,7 @@ Check [INDEPENDENT.md](docs/INDEPENDENT.md) for the recorded validation status.
 The release pairs the tested application with corresponding source and license
 notices; it does not make the legacy v8 binary redistributable or guarantee
 installation/recovery. See [third-party notices](THIRD_PARTY_NOTICES.md).
+
+## Acknowledgments
+
+Thank you to project contributor [tomoca2 (@tomoca2)](https://x.com/tomoca2) for testing the HW 2.1 Windows installer on a physical KM003C, providing the read-only compatibility report, and sharing the video of the game running.
