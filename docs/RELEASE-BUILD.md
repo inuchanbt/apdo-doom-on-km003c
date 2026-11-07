@@ -1,6 +1,6 @@
 # Rebuilding the release source archive
 
-Use the explicit `apdo-doom-v0.1.0-independent-source.tar.gz`, not GitHub's automatic
+Use the explicit release asset ending in `-source.tar.gz`, not GitHub's automatic
 repository-only ZIP. It contains upstream sources and dependency notices, generated
 engine C, the verified Freedoom ZIP/game pack and Rust library sources.
 `SOURCE-MANIFEST.json` binds its files to the tagged project commit.
@@ -20,6 +20,10 @@ $env:APDO_LLVM_BIN = 'C:\path\to\llvm-mingw\bin'
 .\scripts\build-backup.ps1
 .\scripts\build-firmware.ps1 -Python python -Name rebuilt-independent
 ```
+
+To build the HW 2.1 Windows tools, add `--features hw21-trial` to the
+Cargo build of both `apdo-host` and `km003c-backup`. Both installers
+use the same independent ARM application.
 
 Do not run `prepare-sources.py` in this unpacked archive: its upstream sources
 are already present, with the local DMC patch applied; no `.git` directories are

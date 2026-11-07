@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <setjmp.h>
+#include "lcd.h"
 static const uint8_t *image;
 static uint32_t image_size,clock_ms,buttons;
 static uint16_t screen[320*240];
@@ -58,7 +59,7 @@ __declspec(dllexport) int km_host_check_projection(void) {
     return 0;
 }
 void km_column(int x,int y,int h,const uint16_t *pixels) {
-    if(x==0 && y==0 && h==200) clock_ms+=render_delay_ms;
+    if(x==0 && y==0 && h==(square_layout ? LCD_BAR_Y : LCD_VIEW_H)) clock_ms+=render_delay_ms;
     if(x<0 || x>=320 || y<0 || h<0 || y+h>240)km_fail("Host LCD bounds");
     for(int i=0;i<h;i++)screen[(y+i)*320+x]=pixels[i];
 }

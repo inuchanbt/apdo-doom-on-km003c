@@ -1,0 +1,73 @@
+diff --git a/engine/hu_stuff.h b/engine/hu_stuff.h
+--- a/engine/hu_stuff.h
++++ b/engine/hu_stuff.h
+@@ -57,6 +57,9 @@
+ void HU_Ticker(void);
+ void HU_Drawer(void);
+ void HU_DrawBand(void);
++#ifdef KM_SQUARE_VIEW
++boolean HU_MessageVisible(void);
++#endif
+ void HU_Erase(void);
+ 
+ 
+diff --git a/engine/hu_stuff.c b/engine/hu_stuff.c
+--- a/engine/hu_stuff.c
++++ b/engine/hu_stuff.c
+@@ -244,6 +244,13 @@
+     HUlib_drawSText(&w_message);
+ }
+ 
++#ifdef KM_SQUARE_VIEW
++boolean HU_MessageVisible(void)
++{
++    return message_on;
++}
++#endif
++
+ void HU_Erase(void)
+ {
+ 
+diff --git a/port/render/r_band.c b/port/render/r_band.c
+--- a/port/render/r_band.c
++++ b/port/render/r_band.c
+@@ -30,6 +30,10 @@
+ 
+ int r_bandmode;
+ r_bandwin_t r_bandwin;
++
++#ifdef KM_SQUARE_VIEW
++extern void km_message_background(uint8_t *pixels, int first, int last);
++#endif
+ 
+ static uint32_t bar_dirty[(SCREENWIDTH + 31) / 32];
+ static int hud_dirty, band_all = 1, hud_shown, bar_shown;
+@@ -91,7 +95,12 @@
+         int b = a + bytes / h - 1;
+         if (b > x1)
+             b = x1;
+-        memset(buf, 0, (size_t)(b - a + 1) * h);
++#ifdef KM_SQUARE_VIEW
++        if (draw == HU_DrawBand)
++            km_message_background(buf, a, b);
++        else
++#endif
++            memset(buf, 0, (size_t)(b - a + 1) * h);
+         if (draw) {
+             r_bandwin.buf = buf;
+             r_bandwin.x0 = a;
+@@ -128,7 +137,13 @@
+         hud_shown = !hud;
+         bar_shown = !bar;
+     }
+-    if (hud && (hud_dirty || !hud_shown))
++    int redraw_hud = hud_dirty || !hud_shown;
++#ifdef KM_SQUARE_VIEW
++    // A fresh view already covers the message line. Paint only visible text.
++    if (hud && (fe.flags & FE_VIEW))
++        redraw_hud = HU_MessageVisible();
++#endif
++    if (hud && redraw_hud)
+         R_BandCompose(0, SCREENWIDTH - 1, LCD_HUD_Y, HU_MSGY, LCD_BAR_Y - LCD_HUD_Y, HU_DrawBand);
+     else if (!hud && hud_shown)
+         R_BandCompose(0, SCREENWIDTH - 1, LCD_HUD_Y, HU_MSGY, LCD_BAR_Y - LCD_HUD_Y, NULL);

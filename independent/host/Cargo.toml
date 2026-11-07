@@ -3,6 +3,9 @@ name = "apdo-host"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[features]
+hw21-trial = ["km003c-backup/hw21-trial"]
 [dependencies]
 apdo-protocol = {path = "../protocol"}
 anyhow = "1.0.104"

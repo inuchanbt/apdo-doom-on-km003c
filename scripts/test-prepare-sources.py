@@ -22,8 +22,10 @@ class IndependentPreparation(unittest.TestCase):
                 prepare.main()
             self.assertEqual(repo.call_count,2)
             self.assertEqual([c.args[1] for c in repo.call_args_list],["engine-url","converter-url"])
-            self.assertEqual(apply.call_count,1)
-            self.assertEqual(apply.call_args.args[1].name,"dmc100-doom.patch")
+            self.assertEqual(
+                [call.args[1].name for call in apply.call_args_list],
+                ["dmc100-doom.patch", "dmc100-doom-weapon-y.patch", "dmc100-doom-hud-overlay.patch"],
+            )
             self.assertFalse((root/"local").exists())
     def test_wrong_revision_is_rejected_without_reset_or_checkout(self):
         with tempfile.TemporaryDirectory() as tmp:

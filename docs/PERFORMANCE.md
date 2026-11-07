@@ -2,7 +2,9 @@
 
 The independent version retains square projection, the short-read cache, SRAMH
 engine arena and Steady pacing from the earlier work. It uses a 240×240 square
-layout with a complete 40-row HUD and preserves the horizontal field of view.
+layout with a 208-row view and a 32-row status panel. The renderer still computes
+200 rows, which are scaled to fill the view. Messages overlay the bottom eight
+rows of the view, and the horizontal field of view is preserved.
 Steady targets four 35 Hz tics (114.286 ms, 8.75 fps) between frames. This is a
 target, not a minimum guaranteed rate: scene cost and USB preview can exceed it.
 

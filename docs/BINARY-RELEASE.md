@@ -1,15 +1,24 @@
-# Independent experimental binary release
+# Independent experimental binary releases
+
+The [v0.1.1 Windows installers](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.1-independent)
+include the corrected display, the application and the Freedoom E1M1 game data.
+Choose HW 2.3 or the experimental HW 2.1 package for stock FW 2.0.7. Start with
+`START-HERE.md` in the ZIP. See [hardware validation](VALIDATION.md#hw21-gameplay-report)
+for the scope of the earlier gameplay report.
+
+## Historical application-only release
 
 Release: [v0.1.0-independent](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.0-independent).
 Firmware metadata: `KM003C / 2.0.7-apdo2`. This is a **Pre-release**, not a stable,
 manufacturer-approved or universally compatible update.
 
 **HW2.1 failure report:** A [tester with a September 2023 HW2.1 unit](https://x.com/tomoca2/status/2116438041766375717)
-reported a title-screen freeze, errors restoring the original firmware, and
-successful recovery via forced DFU. The exact tested build and cause are
-unconfirmed; this is an external account, not a project reproduction. **HW2.1 is
-unsupported.** This release remains qualified only on the recorded HW2.3 unit,
-and the reported recovery does not guarantee recovery elsewhere. See
+reported an unresponsive Freedoom startup splash after installing the release's
+HW2.3 `.mencrypt` with Mtools 2.5.2. A follow-up supplied on 2026-11-07 shows an
+APDO DOOM entry and `LIBUSB_ERROR_NO_DEVICE` at 0% in the stock updater, followed
+by reported error-free recovery through forced DFU. The reporter installed the
+application alone, so the splash matches the expected wait for game data.
+The v0.1.0 application-only release targeted HW2.3. See
 [the compatibility record](VALIDATION.md#external-hw21-failure-report).
 
 ## Assets and provenance
@@ -47,9 +56,10 @@ The release tag and attached files remain unchanged. Their qualification flags
 describe the evidence available when the assets were created. This later result
 is documented on `main` and in the updated release notes.
 
-Loading this container through the manufacturer's graphical updater has **not**
-been tested. Use the documented qualified host workflow. The file format alone
-does not prove updater/hardware compatibility.
+The manufacturer-updater installation attempt is documented in the external
+HW2.1 report above. The project-tested installation path uses the qualified
+host workflow. Full manufacturer-updater and HW2.1 compatibility require
+further verification.
 
 ## Risks and required preparation
 

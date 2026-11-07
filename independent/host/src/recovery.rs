@@ -42,6 +42,19 @@ pub fn package(input: &Path, output: &Path, installed: bool) -> Result<()> {
     if installed {
         backup::installed(&bytes)?;
         bytes[0x428..0x430].fill(255);
+    } else {
+        // These linker bounds apply to new APDO builds. A qualified installed
+        // image already passed the native vector and committed CRC checks.
+        let stack = u32::from_le_bytes(bytes[..4].try_into()?);
+        let entry = u32::from_le_bytes(bytes[4..8].try_into()?);
+        ensure!(
+            stack % 8 == 0 && (0x20000000..=0x2001fff0).contains(&stack),
+            "Invalid initial stack"
+        );
+        ensure!(
+            entry & 1 == 1 && (0x4460..0x4000 + bytes.len() as u32).contains(&(entry & !1)),
+            "Invalid reset entry"
+        );
     }
     ensure!(
         bytes[0x420..0x424] == 0x4000u32.to_le_bytes(),
@@ -50,16 +63,6 @@ pub fn package(input: &Path, output: &Path, installed: bool) -> Result<()> {
     ensure!(
         bytes[0x428..0x430] == [255; 8],
         "Expected uncommitted size/CRC fields"
-    );
-    let stack = u32::from_le_bytes(bytes[..4].try_into()?);
-    let entry = u32::from_le_bytes(bytes[4..8].try_into()?);
-    ensure!(
-        stack % 8 == 0 && (0x20000000..=0x2001fff0).contains(&stack),
-        "Invalid initial stack"
-    );
-    ensure!(
-        entry & 1 == 1 && (0x4460..0x4000 + bytes.len() as u32).contains(&(entry & !1)),
-        "Invalid reset entry"
     );
     let mut fields = vec![
         "Firmware file".to_owned(),
@@ -120,7 +123,31 @@ fn selector(m: &backup::Manifest) -> DeviceSelector {
         port_chain: m.usb_port.port_chain.clone(),
     }
 }
-async fn open(stock: &Path) -> Result<(backup::Reader, Vec<u8>)> {
+
+#[cfg(feature = "hw21-trial")]
+fn trial_image(encoded: &[u8], image: &FirmwareImage) -> Result<()> {
+    const DOOM_SHA: &str = "27ed3077f0fedbbbf927b33b230e868eea9d24cef6e18b8ed21103b7d53a5506";
+    ensure!(
+        backup::digest(encoded) == DOOM_SHA
+            || backup::digest(&image.installed_data()?) == backup::HW21_STOCK_SHA,
+        "HW2.1 trial accepts only the pinned DOOM release or the surveyed stock application"
+    );
+    Ok(())
+}
+
+#[cfg(feature = "hw21-trial")]
+async fn check_trial_tail(reader: &mut backup::Reader, stock: &Path) -> Result<()> {
+    // The last stock erase sector must remain erased beyond the app. The rest
+    // is outside both images' erase ranges and must match the per-unit backup.
+    let tail = fs::read(stock.join(backup::INTERNAL_TAIL))?;
+    ensure!(
+        reader.read(0x738c0, 0x80000 - 0x738c0).await? == tail[0x38c0..],
+        "Internal flash beyond the stock app differs from the qualified backup"
+    );
+    Ok(())
+}
+
+async fn open(stock: &Path) -> Result<(backup::Reader, Vec<u8>, backup::Manifest)> {
     let manifest = backup::verify_qualified(stock)?;
     let selector = selector(&manifest);
     let found = find_firmware_device(&selector).await?;
@@ -131,7 +158,7 @@ async fn open(stock: &Path) -> Result<(backup::Reader, Vec<u8>)> {
     let mut device = KM003C::open_maintenance(selector).await?;
     let info = device.get_bootloader_info().await?;
     ensure!(
-        info.model == "KM003C" && info.hw_version == "2.3",
+        info.model == manifest.identity.model && info.hw_version == manifest.identity.hardware,
         "Unsupported device hardware"
     );
     let baseline = fs::read(stock.join(backup::LOADER))?;
@@ -140,13 +167,17 @@ async fn open(stock: &Path) -> Result<(backup::Reader, Vec<u8>)> {
         reader.read(4, 0x3ffc).await? == baseline,
         "Loader differs from this device's qualified backup"
     );
-    Ok((reader, baseline))
+    #[cfg(feature = "hw21-trial")]
+    check_trial_tail(&mut reader, stock).await?;
+    Ok((reader, baseline, manifest))
 }
 pub async fn flash(stock: &Path, package: &Path, evidence: &Path) -> Result<()> {
     let encoded = fs::read(package)?;
     let image = FirmwareImage::parse(&encoded)?;
     image.validate_for_update()?;
-    let (mut reader, baseline) = open(stock).await?;
+    #[cfg(feature = "hw21-trial")]
+    trial_image(&encoded, &image)?;
+    let (mut reader, baseline, _) = open(stock).await?;
     fs::create_dir(evidence).context("Evidence directory must be new and its parent must exist")?;
     backup::save(&evidence.join("loader-before.bin"), &baseline)?;
     backup::save_json(
@@ -171,6 +202,8 @@ pub async fn flash(stock: &Path, package: &Path, evidence: &Path) -> Result<()> 
         app == image.installed_data()?,
         "Full application readback differs"
     );
+    #[cfg(feature = "hw21-trial")]
+    check_trial_tail(&mut reader, stock).await?;
     backup::save_json(
         &evidence.join("verified.json"),
         &serde_json::json!({
@@ -179,16 +212,33 @@ pub async fn flash(stock: &Path, package: &Path, evidence: &Path) -> Result<()> 
     println!("Full readback verified; device remains in native DFU");
     Ok(())
 }
-pub async fn start(stock: &Path, package: &Path) -> Result<()> {
-    let image = FirmwareImage::parse(&fs::read(package)?)?;
+async fn checked_application(
+    stock: &Path,
+    package: &Path,
+) -> Result<(backup::Reader, FirmwareImage, backup::Manifest)> {
+    let encoded = fs::read(package)?;
+    let image = FirmwareImage::parse(&encoded)?;
     image.validate_for_update()?;
-    let (mut reader, _) = open(stock).await?;
+    #[cfg(feature = "hw21-trial")]
+    trial_image(&encoded, &image)?;
+    let (mut reader, _, manifest) = open(stock).await?;
     ensure!(
         reader.read(0x4000, image.data().len()).await? == image.installed_data()?,
         "Installed image differs; staying in DFU"
     );
+    Ok((reader, image, manifest))
+}
+
+pub async fn check_application(stock: &Path, package: &Path) -> Result<()> {
+    checked_application(stock, package).await?;
+    println!("Installed application and loader verified in native DFU");
+    Ok(())
+}
+
+pub async fn start(stock: &Path, package: &Path) -> Result<()> {
+    let (mut reader, image, manifest) = checked_application(stock, package).await?;
     // A re-enumeration may terminate the final write; readiness is checked by the caller.
-    let selected = backup::verify_qualified(stock)?.usb_port;
+    let selected = &manifest.usb_port;
     let result = reader.device.jump_to_application().await;
     drop(reader);
     let expected_product = if image.metadata().version.contains("-apdo") {
@@ -218,14 +268,30 @@ pub async fn start(stock: &Path, package: &Path) -> Result<()> {
             let identity = app.get_device_info().await?;
             ensure!(
                 identity.model == "KM003C"
-                    && identity.hw_version == "2.3"
+                    && identity.hw_version == manifest.identity.hardware
                     && identity.fw_version == image.metadata().version,
                 "Started stock application identity differs"
             );
+            #[cfg(feature = "hw21-trial")]
+            {
+                ensure!(
+                    identity.serial_id == manifest.identity.serial,
+                    "Stock serial differs"
+                );
+                let mut reader = backup::Reader {
+                    device: app,
+                    dfu: false,
+                };
+                ensure!(
+                    reader.read(0x03000c00, 0x400).await?
+                        == fs::read(stock.join(backup::CALIBRATION))?,
+                    "Stock calibration differs from the qualified backup"
+                );
+            }
             println!("Original application connected and identity verified");
             return Ok(());
         }
-        if found && let Ok(mut client) = crate::Client::open() {
+        if found && let Ok(mut client) = crate::Client::open_on(Some(selected)) {
             let status = client.info()?;
             println!(
                 "Independent application connected: running={}, frames={}",
@@ -239,6 +305,35 @@ pub async fn start(stock: &Path, package: &Path) -> Result<()> {
     anyhow::bail!(
         "Independent application did not answer on the selected port; start write result: {result:?}"
     )
+}
+
+#[cfg(feature = "hw21-trial")]
+pub async fn exit_test(stock: &Path, package: &Path) -> Result<()> {
+    let manifest = backup::verify_qualified(stock)?;
+    let mut client = crate::Client::open_on(Some(&manifest.usb_port))?;
+    let status = client.info()?;
+    ensure!(
+        status[0] == 0 && status[1] == 0 && status[7] & apdo_protocol::BOOT_SPLASH_FLAG != 0,
+        "Expected a live APDO reply in the Freedoom splash with zero rendered frames"
+    );
+    drop(client);
+    println!(
+        "APDO replied from the splash. Hold Exit for at least 2 seconds now. Keep HID plugged in."
+    );
+    let selected = selector(&manifest);
+    let timeout = std::time::Duration::from_secs(25);
+    let deadline = std::time::Instant::now() + timeout;
+    while std::time::Instant::now() < deadline {
+        if let Ok(found) = find_firmware_device(&selected).await
+            && found.mode == FirmwareUsbMode::Dfu
+        {
+            check_application(stock, package).await?;
+            println!("Native DFU confirmed on the same port after the physical Exit test.");
+            return Ok(());
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+    anyhow::bail!("Exit test timed out. Game data has not been written. Use app-only recovery.")
 }
 
 pub async fn enter_loader(mut client: crate::Client) -> Result<()> {
@@ -307,6 +402,25 @@ mod tests {
                 .unwrap(),
             installed
         );
+        let mut stock = app.clone();
+        stock[..4].copy_from_slice(&0x1fffd260u32.to_le_bytes());
+        stock[4..8].copy_from_slice(&0x4295u32.to_le_bytes());
+        stock[0x43c..0x448].fill(0);
+        stock[0x43c..0x441].copy_from_slice(b"2.0.7");
+        let stock_crc = crc32fast::hash(&stock);
+        let stock_size = stock.len() as u32;
+        stock[0x428..0x42c].copy_from_slice(&stock_size.to_le_bytes());
+        stock[0x42c..0x430].copy_from_slice(&stock_crc.to_le_bytes());
+        let stock_restore = root.join("stock-restore.mencrypt");
+        fs::write(&raw, &stock).unwrap();
+        package(&raw, &stock_restore, true).unwrap();
+        assert_eq!(
+            FirmwareImage::parse(&fs::read(stock_restore).unwrap())
+                .unwrap()
+                .installed_data()
+                .unwrap(),
+            stock
+        );
         app[4] = 0;
         fs::write(&raw, app).unwrap();
         assert!(package(&raw, &root.join("bad"), false).is_err());
@@ -315,7 +429,7 @@ mod tests {
 }
 
 pub async fn diagnostics(stock: &Path, out: &Path) -> Result<()> {
-    let (mut reader, _) = open(stock).await?;
+    let (mut reader, _, _) = open(stock).await?;
     let bytes = reader.read(0x200f0000, 4096).await?;
     fs::create_dir(out).context("Diagnostic directory must be new")?;
     backup::save(&out.join("retention.bin"), &bytes)?;

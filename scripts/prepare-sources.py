@@ -74,6 +74,9 @@ def main():
         repo = ROOT / "vendor" / folder
         ensure_repo(repo, lock[key]["url"], lock[key]["revision"], args.check)
         apply_patch(repo, ROOT / "patches" / f"{folder}.patch", args.check)
+        # A separate patch also upgrades checkouts with the original patch applied.
+        apply_patch(repo, ROOT / "patches/dmc100-doom-weapon-y.patch", args.check)
+        apply_patch(repo, ROOT / "patches/dmc100-doom-hud-overlay.patch", args.check)
         overlay = ROOT / "overlays" / folder
         if overlay.exists():
             copy_overlay(repo, overlay, args.check)

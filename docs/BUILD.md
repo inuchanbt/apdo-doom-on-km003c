@@ -27,8 +27,9 @@ Pop-Location
 ```
 
 Preparation fetches only pinned DMC100-Doom/doomgeneric sources, applies the DMC
-patch and never reads private recovery data. The converter verifies its official
-Freedoom 0.13.0 download. The expected 2,802,000-byte E1M1 pack SHA-256 is in
+patches and never reads private recovery data. Rerun `prepare-sources.py` after
+pulling an engine patch update into an existing checkout. The converter verifies
+its official Freedoom 0.13.0 download. The expected 2,802,000-byte E1M1 pack SHA-256 is in
 `SOURCE_LOCK.json`. `python scripts/prepare-sources.py --check` checks existing sources.
 
 ## Build without a backup or a connected meter

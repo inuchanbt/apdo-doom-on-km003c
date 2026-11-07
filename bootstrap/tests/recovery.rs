@@ -59,7 +59,7 @@ async fn fixture(dir: &Path) -> Manifest {
             APP => bytes = app.clone(),
             LOADER => {
                 field(&mut bytes, 0x41c + 0x10, b"KM003C");
-                field(&mut bytes, 0x41c + 0x1c, b"2.3");
+                field(&mut bytes, 0x41c + 0x1c, TARGET_HW.as_bytes());
             }
             "calibration-03000c00.bin" => field(&mut bytes, 0, b"123456"),
             _ => {}
@@ -74,7 +74,7 @@ async fn fixture(dir: &Path) -> Manifest {
         schema_version: 1,
         identity: Identity {
             model: "KM003C".into(),
-            hardware: "2.3".into(),
+            hardware: TARGET_HW.into(),
             firmware: "2.0.7".into(),
             firmware_date: "2026.1.1".into(),
             serial: "123456".into(),
@@ -109,6 +109,7 @@ fn rehash(dir: &Path, entry: &mut Region, bytes: &[u8]) {
     )
     .unwrap();
 }
+#[cfg(not(feature = "hw21-trial"))]
 async fn qualify(dir: &Path, manifest: &Manifest) {
     let dfu = dir.join("dfu-recovery-check");
     fs::create_dir(&dfu).unwrap();
@@ -132,6 +133,7 @@ async fn qualify(dir: &Path, manifest: &Manifest) {
     .unwrap();
 }
 #[tokio::test]
+#[cfg(not(feature = "hw21-trial"))]
 async fn stock_and_dfu_evidence_verify_offline() {
     let dir = tempfile::tempdir().unwrap();
     let manifest = fixture(dir.path()).await;
@@ -139,6 +141,14 @@ async fn stock_and_dfu_evidence_verify_offline() {
     assert!(verify_qualified(dir.path()).is_err());
     qualify(dir.path(), &manifest).await;
     verify_qualified(dir.path()).unwrap();
+}
+#[tokio::test]
+#[cfg(feature = "hw21-trial")]
+async fn trial_refuses_an_unrecognized_app_even_with_valid_crc_and_manifest() {
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path()).await;
+    let error = verify_stock(dir.path()).unwrap_err();
+    assert!(error.to_string().contains("exact surveyed stock app"));
 }
 #[tokio::test]
 async fn mismatching_second_read_never_gets_a_success_record() {
@@ -192,6 +202,7 @@ async fn crc_failure_is_rejected_even_with_updated_sha_records() {
     );
 }
 #[tokio::test]
+#[cfg(not(feature = "hw21-trial"))]
 async fn wrong_region_paths_ranges_and_missing_sidecars_are_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let manifest = fixture(dir.path()).await;
@@ -211,6 +222,7 @@ async fn wrong_region_paths_ranges_and_missing_sidecars_are_rejected() {
     assert!(verify_stock(dir.path()).is_err());
 }
 #[tokio::test]
+#[cfg(not(feature = "hw21-trial"))]
 async fn unsupported_hardware_and_wrong_calibration_serial_are_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let manifest = fixture(dir.path()).await;
@@ -223,6 +235,7 @@ async fn unsupported_hardware_and_wrong_calibration_serial_are_rejected() {
     }
 }
 #[tokio::test]
+#[cfg(not(feature = "hw21-trial"))]
 async fn dfu_must_match_both_original_regions_and_manifest() {
     for stock_name in [LOADER, APP] {
         let dir = tempfile::tempdir().unwrap();

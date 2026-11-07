@@ -17,15 +17,18 @@ struct Args {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Print the hardware revision targeted by this build.
+    TargetHardware,
     /// Read identity; select explicitly if more than one device is attached.
     Inspect {
         #[arg(long)]
         serial: Option<String>,
     },
-    /// Acquire stock APP recovery regions twice. Only HW2.3 / stock 2.0.7.
+    /// Acquire stock APP recovery regions twice. Stock firmware 2.0.7 required.
     Stock {
+        /// Select by serial if more than one meter is attached.
         #[arg(long)]
-        serial: String,
+        serial: Option<String>,
         #[arg(long)]
         output: PathBuf,
     },
@@ -60,6 +63,7 @@ fn selector(port: &UsbPort) -> DeviceSelector {
 #[tokio::main]
 async fn main() -> Result<()> {
     match Args::parse().command {
+        Command::TargetHardware => println!("{TARGET_HW}"),
         Command::Inspect { serial } => {
             let selected = serial.map_or(DeviceSelector::First, DeviceSelector::SerialNumber);
             let found = find_firmware_device(&selected).await?;
@@ -78,12 +82,18 @@ async fn main() -> Result<()> {
             }
         }
         Command::Stock { serial, output } => {
-            let found = find_firmware_device(&DeviceSelector::SerialNumber(serial.clone())).await?;
+            let selected = serial.as_ref().map_or(DeviceSelector::First, |serial| {
+                DeviceSelector::SerialNumber(serial.clone())
+            });
+            let found = find_firmware_device(&selected).await?;
             ensure!(
                 found.mode == FirmwareUsbMode::Application
                     && found.product_string.as_deref() == Some("POWER-Z KM003C"),
                 "run under untouched stock application"
             );
+            let serial = serial
+                .or(found.serial_number)
+                .context("USB serial unavailable")?;
             let usb_port = port(found.port_selector.context("physical port not available")?)?;
             let mut device = KM003C::new(
                 DeviceConfig::vendor()

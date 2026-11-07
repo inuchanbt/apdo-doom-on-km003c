@@ -222,6 +222,19 @@ fn run() -> Result<()> {
         "Usage: apdo-host info | game-control [--preview] | loader | pause | play"
     );
     match args[0].as_str() {
+        "target-hardware" if args.len() == 1 => {
+            println!("{}", km003c_backup::TARGET_HW);
+            return Ok(());
+        }
+        #[cfg(feature = "hw21-trial")]
+        "exit-test" => {
+            ensure!(
+                args.len() == 3,
+                "Usage: apdo-host exit-test STOCK_BACKUP DOOM_IMAGE"
+            );
+            return tokio::runtime::Runtime::new()?
+                .block_on(recovery::exit_test(args[1].as_ref(), args[2].as_ref()));
+        }
         "audit-image" => {
             ensure!(
                 args.len() == 3,
@@ -280,17 +293,28 @@ fn run() -> Result<()> {
                 args[3].as_ref(),
             ));
         }
-        "start" => {
+        "check-app" | "start" => {
             ensure!(
                 args.len() == 3,
-                "Usage: apdo-host start STOCK_BACKUP VERIFIED_IMAGE"
+                "Usage: apdo-host check-app|start STOCK_BACKUP VERIFIED_IMAGE"
             );
-            return tokio::runtime::Runtime::new()?
-                .block_on(recovery::start(args[1].as_ref(), args[2].as_ref()));
+            let runtime = tokio::runtime::Runtime::new()?;
+            let (stock, image) = (args[1].as_ref(), args[2].as_ref());
+            return if args[0] == "check-app" {
+                runtime.block_on(recovery::check_application(stock, image))
+            } else {
+                runtime.block_on(recovery::start(stock, image))
+            };
         }
         _ => {}
     }
-    let mut client = Client::open()?;
+    let mut client =
+        if matches!(args[0].as_str(), "loader" | "play" | "check-game") && args.len() == 2 {
+            let stock = km003c_backup::verify_qualified(args[1].as_ref())?;
+            Client::open_on(Some(&stock.usb_port))?
+        } else {
+            Client::open()?
+        };
     match args[0].as_str() {
         "info" => {
             let s = client.info()?;
@@ -306,6 +330,23 @@ fn run() -> Result<()> {
         }
         "play" => {
             client.call(wire::PLAY, 0, 0)?;
+        }
+        #[cfg(feature = "hw21-trial")]
+        "check-game" if args.len() == 2 => {
+            let initial = client.info()?[0];
+            let deadline = Instant::now() + Duration::from_secs(15);
+            loop {
+                let status = client.info()?;
+                if status[1] != 0 && status[0] != initial && status[0] > 0 {
+                    state(&status);
+                    break;
+                }
+                ensure!(
+                    Instant::now() < deadline,
+                    "DOOM frame counter did not advance"
+                );
+                std::thread::sleep(Duration::from_millis(200));
+            }
         }
         _ => anyhow::bail!("Unknown command"),
     }

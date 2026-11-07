@@ -197,7 +197,44 @@ void lcd_fill(int x0,int y0,int x1,int y1,uint16_t c) {
 void pump_begin(int x0,int x1,int y0,int y1,int flags) {
     lcd_begin(x0,y0,x1,y1); reps=(flags&PUMP_DOUBLE)?2:1;ui_window=!!(flags&PUMP_UI);
 }
+#ifdef KM_SQUARE_VIEW
+// Keep the indexed backdrop for the message line, which overlays the view.
+static uint8_t message_background[240][LCD_BAR_Y - LCD_HUD_Y];
+
+void km_message_background(uint8_t *pixels, int first, int last) {
+    for (int x = first; x <= last; ++x) {
+        // A discarded UI column can use the same backdrop as its neighbor.
+        int panel_x = x - (x + 1) / 4;
+        memcpy(pixels, message_background[panel_x], sizeof(message_background[0]));
+        pixels += sizeof(message_background[0]);
+    }
+}
+
+static void pump_square_view(const uint8_t *pixels, int ncols) {
+    for (int x = 0; x < ncols; ++x, pixels += LCD_VIEW_H) {
+        uint8_t tail[LCD_BAR_Y - LCD_HUD_Y];
+        for (int y = 0; y < LCD_HUD_Y; ++y)
+            column[y] = pump_lut[pixels[y * LCD_VIEW_H / LCD_BAR_Y]];
+        for (int y = LCD_HUD_Y; y < LCD_BAR_Y; ++y) {
+            uint8_t index = pixels[y * LCD_VIEW_H / LCD_BAR_Y];
+            tail[y - LCD_HUD_Y] = index;
+            column[y] = pump_lut[index];
+        }
+        for (int r = 0; r < reps; ++r, ++px) {
+            memcpy(message_background[px], tail, sizeof(tail));
+            km_column(px, 0, LCD_BAR_Y, column);
+        }
+    }
+}
+#endif
+
 void pump_submit(const uint8_t *p,int ncols) {
+#ifdef KM_SQUARE_VIEW
+    if (!ui_window && py == 0 && ph == LCD_VIEW_H) {
+        pump_square_view(p, ncols);
+        return;
+    }
+#endif
     for(int x=0;x<ncols;x++) {
         for(int y=0;y<ph;y++) column[y]=pump_lut[p[x*ph+y]];
         for(int r=0;r<reps;r++) emit_column(px++,py,ph,column);

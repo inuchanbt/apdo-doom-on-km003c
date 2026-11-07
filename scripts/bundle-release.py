@@ -22,12 +22,14 @@ SCRIPT_NAMES = {
     'build-firmware.ps1', 'extract-splash.py', 'prepare-sources.py',
     'pc-controller.py', 'play.ps1', 'render-frame.py', 'test-engine.py',
     'test-input-cadence.py', 'test-prepare-sources.py', 'vendor-release.py',
-    'bundle-release.py',
+    'bundle-release.py', 'bundle-windows-installer.py',
+    'install-windows.ps1', 'Install-APDO-DOOM.cmd',
 }
 DOC_NAMES = {'BUILD.md', 'FIRST-BACKUP.md', 'INDEPENDENT.md', 'BINARY-RELEASE.md',
              'INSTALL-PREBUILT.md', 'RELEASE-BUILD.md', 'BRANCHES.md',
              'VALIDATION.md', 'PC-CONTROLS.md', 'SCREEN-CAPTURE.md',
-             'RECOVERY.md', 'PERFORMANCE.md'}
+             'RECOVERY.md', 'PERFORMANCE.md', 'INSTALL-WINDOWS.md',
+             'INSTALL-WINDOWS-HW21-TRIAL.ja.md'}
 
 
 def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -45,7 +47,8 @@ def project_files():
             or p.parent == Path('scripts') and p.name in SCRIPT_NAMES
             or p.parent == Path('docs') and p.name in DOC_NAMES
             or p.parent == Path('docs/images')
-            or name == 'patches/dmc100-doom.patch'):
+            or name in {'patches/dmc100-doom.patch', 'patches/dmc100-doom-weapon-y.patch',
+                        'patches/dmc100-doom-hud-overlay.patch'}):
             yield name
 
 
@@ -100,7 +103,8 @@ def seal(args):
             assert (ROOT/name).read_bytes()==(dst/name).read_bytes(),'Code changed after offline source build: '+name
     subprocess.run(['git','-C',str(ROOT),'diff','--exit-code','--quiet','adfb93b','--',
                     'native','independent/firmware','independent/hardware','independent/protocol',
-                    'patches/dmc100-doom.patch','scripts/build-engine.py'],check=True)
+                    'patches/dmc100-doom.patch','patches/dmc100-doom-weapon-y.patch',
+                    'patches/dmc100-doom-hud-overlay.patch','scripts/build-engine.py'],check=True)
     snapshot_project(dst)
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     files = sorted(set(json.loads((dst / 'SOURCE-FILES.json').read_text())) | set(project_files()))

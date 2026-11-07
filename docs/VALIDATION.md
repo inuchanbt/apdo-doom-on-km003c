@@ -25,20 +25,85 @@ The project remains experimental and backup requirements remain in force.
 A [report by @tomoca2 on X](https://x.com/tomoca2/status/2116438041766375717),
 received on 2026-10-31, describes one **HW2.1 meter manufactured in September 2023**:
 
-- The application froze at the title screen.
-- Attempts to restore the original firmware also produced an error.
-- The reporter successfully recovered the unit using **forced DFU mode**.
+- The reporter described an unresponsive title screen and a failed attempt to
+  restore the original firmware from the PC application.
+- The reporter recovered the unit using **forced DFU mode**.
 
-This entry records the reporter's account supplied by the project owner. It has
-not been independently reproduced on project hardware. The exact firmware build,
-stock firmware version, title-screen stage, error output and root cause were
-not supplied in the quoted report. No specific DFU entry sequence is established
-by that account, so it is not a new recovery procedure or a universal workaround.
+### Follow-up supplied on 2026-11-07
 
-**HW2.1 remains unsupported.** Do not bypass hardware validation to try it.
-Project qualification remains limited to the same HW2.3 / stock 2.0.7 unit;
-recovery reported on this HW2.1 unit does not establish recoverability of other
-units or failure modes. No HW2.1 fix or additional compatibility claim is made.
+The project owner supplied the reporter's additional description, screenshots,
+and a read-only DFU survey after recovery.
+
+- The reported input file was
+  `apdo-doom-km003c-hw2.3-v0.1.0-independent.mencrypt`, installed with the stock
+  Mtools 2.5.2 application. The PC screenshot labels the application
+  **POWER-Z Lab 2.5.2** and shows `2.0.7-apdo2` in the firmware pane.
+- The meter photo shows the built-in **Freedoom startup splash logo**. The
+  reporter described the meter as unresponsive at that screen.
+- The PC screenshot lists **DOOM / APDO DOOM**, with an older KM003C entry marked
+  Offline. The update dialog shows **0%** and `Failed LIBUSB_ERROR_NO_DEVICE`.
+  The firmware pane also displays HW 2.1 / FW 2.0.7. These are UI observations
+  rather than a fresh stock-identity readback or a successful APDO exchange.
+- The reporter confirmed that Mtools installed only the `.mencrypt`. The
+  separate Freedoom E1M1 game data was never written. The reporter also observed
+  no visible response to button operations. The length of the Exit press was
+  unspecified.
+- With a normal connection, POWER-Z Lab showed the DOOM entry as active. The
+  reporter entered native DFU by holding Back/Exit during power-on, then
+  selected the 2.0.7 chip icon to restore the original firmware. The reporter
+  confirmed normal USB tester operation after recovery. The post-recovery
+  screenshots show **KM003C APP connected**, HW 2.1, FW 2.0.7, and ROM `4MB`.
+- The read-only DFU survey matched the published HW2.1 loader SHA-256
+  `17d51eeff9fb6abe1a7024a108006248e0aaebdaae52de69a3e26c000565d4bf` and the
+  stock 2.0.7 application SHA-256
+  `c63057eaf08b8625e7ac2fc7270c06d75515e78fdbdd46080bdf4b696984ec67`.
+  The original application was 456,896 bytes and its CRC passed.
+
+### Interpretation from the tagged source
+
+The [`v0.1.0-independent` game task](https://github.com/inuchanbt/apdo-doom-on-km003c/blob/v0.1.0-independent/independent/firmware/src/game.rs)
+draws the startup splash before entering its service loop. Automatic engine
+startup requires `DMCDOOM\0` at NOR offset zero and the three-second boot delay.
+With an absent signature, the service keeps the splash visible. The confirmed
+app-only installation explains the screen. The same task checks for a
+two-second Exit hold while waiting. The [verified HW2.1 button mapping](https://github.com/okhsunrog/km003c-firmware/blob/87b3f787d1c1e2ea6213461e1e1cdfce29fb57e3/docs/reverse-engineering/board_bringup.md)
+matches the tagged GPIO assignments for all four buttons.
+
+The [tagged USB service](https://github.com/inuchanbt/apdo-doom-on-km003c/blob/v0.1.0-independent/independent/firmware/src/usb.rs)
+advertises `APDO DOOM` and accepts the APDO request format. The stock updater
+uses its own application protocol. Its device list records recognition of the
+DOOM descriptors, while the reported update error leaves APDO service
+responsiveness unresolved.
+
+The official 225,256-byte DOOM application and the loader matching the survey
+passed an offline execution of the loader's normal application-jump path. The
+test ended at the reset vector. Live APDO replies, the sustained Exit action,
+gameplay, and a full NOR installation and restore on HW2.1 remain unverified.
+
+These observations describe the app-only v0.1.0 installation through Mtools. The
+subsequent HW 2.1 Windows installer uses its own hardware checks and game-data
+transfer.
+
+### Private HW2.1 trial
+
+The [Windows trial](INSTALL-WINDOWS-HW21-TRIAL.ja.md) builds its own HW2.1 tools
+and pins the surveyed loader, stock application, and public DOOM image. It
+checks the live splash reply and waits for the meter's physical Exit transition
+to native DFU before game-data writes. It then checks the complete NOR backup,
+game readback and frame progress. Restoration verifies NOR before starting the
+original application and checking stock calibration.
+
+An offline run of the matching native loader's erase, write, CRC commit and
+startup path used the public DOOM and exact stock application bytes. DOOM erased
+28 modeled sectors and stock erased 56. The modeled internal flash matched the
+original bytes after restoration. This run models the flash and CRC peripherals.
+### HW2.1 gameplay report
+
+On 2026-11-07 the collaborator reported gameplay with the earlier HW 2.1
+Windows trial, and a supplied video shows the game rendering and responding to
+buttons. This establishes gameplay on the surveyed HW 2.1 unit with the earlier
+build. The video does not establish a full stock restore or test the updated
+v0.1.1 binary. The HW 2.1 release remains experimental.
 
 ## Previously recorded engineering checks
 

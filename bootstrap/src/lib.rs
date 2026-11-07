@@ -9,6 +9,40 @@ use std::{fs, io::Write, path::Path};
 pub const LOADER: &str = "loader-00000004-00003fff.bin";
 pub const APP: &str = "stock-app.bin";
 pub const PREFIX: &str = "external-first-3MiB.bin";
+pub const INTERNAL_TAIL: &str = "internal-tail-00070000.bin";
+pub const CALIBRATION: &str = "calibration-03000c00.bin";
+pub const TARGET_HW: &str = if cfg!(feature = "hw21-trial") {
+    "2.1"
+} else {
+    "2.3"
+};
+
+#[cfg(feature = "hw21-trial")]
+pub const HW21_STOCK_SHA: &str = "c63057eaf08b8625e7ac2fc7270c06d75515e78fdbdd46080bdf4b696984ec67";
+
+#[cfg(feature = "hw21-trial")]
+fn verify_trial_region(name: &str, data: &[u8]) -> Result<()> {
+    match name {
+        APP => ensure!(
+            digest(data) == HW21_STOCK_SHA,
+            "HW2.1 trial requires the exact surveyed stock app"
+        ),
+        LOADER => ensure!(
+            digest(data) == "17d51eeff9fb6abe1a7024a108006248e0aaebdaae52de69a3e26c000565d4bf",
+            "HW2.1 trial requires the exact surveyed loader"
+        ),
+        INTERNAL_TAIL => ensure!(
+            data[0x38c0..0x4000].iter().all(|&byte| byte == 0xff),
+            "The stock final erase sector has data beyond the application"
+        ),
+        PREFIX => ensure!(
+            !data.starts_with(b"DMCDOOM\0"),
+            "HW2.1 trial requires stock NOR contents before installation"
+        ),
+        _ => {}
+    }
+    Ok(())
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -22,8 +56,8 @@ pub struct Identity {
 impl Identity {
     pub fn supported(&self) -> Result<()> {
         ensure!(
-            self.model == "KM003C" && self.hardware == "2.3" && self.firmware == "2.0.7",
-            "initial acquisition supports only KM003C HW2.3 stock firmware 2.0.7; stop on other versions"
+            self.model == "KM003C" && self.hardware == TARGET_HW && self.firmware == "2.0.7",
+            "initial acquisition supports only KM003C HW{TARGET_HW} stock firmware 2.0.7"
         );
         ensure!(
             !self.serial.is_empty()
@@ -116,8 +150,8 @@ pub fn stock_regions(app_size: usize) -> [(&'static str, u32, usize); 5] {
     [
         (APP, 0x4000, app_size),
         (LOADER, 4, 0x3ffc),
-        ("internal-tail-00070000.bin", 0x70000, 0x10000),
-        ("calibration-03000c00.bin", 0x03000c00, 0x400),
+        (INTERNAL_TAIL, 0x70000, 0x10000),
+        (CALIBRATION, 0x03000c00, 0x400),
         (PREFIX, 0x98000000, 0x300000),
     ]
 }
@@ -206,6 +240,8 @@ pub fn verify_stock(dir: &Path) -> Result<Manifest> {
     );
     for (entry, (name, address, size)) in manifest.regions.iter().zip(stock_regions(app.len())) {
         let data = verify_region(dir, entry, name, address, size)?;
+        #[cfg(feature = "hw21-trial")]
+        verify_trial_region(name, &data)?;
         let mut identity = DeviceInfo::default();
         if name == LOADER {
             identity.parse_device_info(&data[0x41c..0x45c]);
@@ -214,7 +250,7 @@ pub fn verify_stock(dir: &Path) -> Result<Manifest> {
                     && identity.hw_version == manifest.identity.hardware,
                 "loader hardware identity mismatch"
             );
-        } else if name == "calibration-03000c00.bin" {
+        } else if name == CALIBRATION {
             identity.parse_calibration(&data);
             ensure!(
                 identity.serial_id == manifest.identity.serial,

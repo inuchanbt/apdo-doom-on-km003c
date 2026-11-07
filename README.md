@@ -14,27 +14,20 @@ See [branch and tool migration](docs/BRANCHES.md) when updating an existing work
 
 ## Experimental firmware download — read the risks first
 
-**HW2.1 incompatibility report:** A [community tester](https://x.com/tomoca2/status/2116438041766375717)
-reports that a **September 2023 HW2.1 unit freezes at the title screen**. Attempts
-to restore the original firmware also errored; the tester reports successful
-recovery using forced DFU mode. The exact firmware build and cause have not been
-confirmed, and this report has not been independently reproduced. **HW2.1 is not
-supported; do not bypass the HW2.3 checks.** Recovery on that unit does not
-guarantee recovery on another. See [compatibility reports](docs/VALIDATION.md#external-hw21-failure-report).
+[Download v0.1.1-independent](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.1-independent).
+Choose the Windows x64 ZIP for your meter's hardware revision and open its
+`START-HERE.md`. Both packages include the app and Freedoom E1M1 game data.
+Use the attached `-source.tar.gz` for matching project and dependency sources.
 
-[Download v0.1.0-independent](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.0-independent).
-The recommended `-firmware.zip` includes the application-only `.mencrypt`,
-notices and installation guide. Also obtain the separate Freedoom E1M1 data ZIP,
-and the [prebuilt installation guide](docs/INSTALL-PREBUILT.md). Matching complete
-source, upstream/dependency notices, a release manifest and SHA-256 checksums
-are supplied alongside them. The automatic GitHub source archive alone omits
-upstream/dependency sources; use the explicitly attached `-source.tar.gz`.
+The installers target **HW 2.3** and **HW 2.1 (experimental)** on stock FW 2.0.7.
+An earlier HW 2.1 trial reached gameplay on one collaborator's meter.
+See [validation and compatibility](docs/VALIDATION.md#hw21-gameplay-report).
 
 **Installing this can permanently disable your meter or lose factory data.
 Recovery is not guaranteed; repair or replacement may be necessary.**
 
-- Tested on **one HW2.3 meter originally running stock 2.0.7**. Other revisions,
-  firmware versions and individual units are not validated. Do not force a mismatch.
+- Use stock FW 2.0.7 and the installer for the exact hardware revision.
+  Stop if the installer reports a mismatch.
 - This replaces the tester application with DOOM. **USB measurement, PD negotiation
   and the stock tester UI are unavailable while it is installed.**
 - Game installation changes the first 3 MiB of external NOR. Acquire your own
@@ -50,9 +43,8 @@ Recovery is not guaranteed; repair or replacement may be necessary.**
   Never write a bootloader/ICG or use another unit's recovery data.
 
 The update file contains no stock app, loader, ICG, calibration or device identifier.
-It contains the Freedoom startup logo, but **not the playable game pack**. The
-`.mencrypt` has been flashed and read back using this project's qualified host
-workflow; loading it through the manufacturer's graphical updater is **untested**.
+The Windows installer writes the app and the included game pack in two stages.
+Use the included installer for this release.
 This is an unofficial, experimental project, supplied without project warranty; manufacturer approval/support is not claimed. See [release details](docs/BINARY-RELEASE.md).
 
 ![Web controller](docs/images/km003c-web-controller.jpg)

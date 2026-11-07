@@ -28,6 +28,9 @@ for i in range(140):
     assert dll.km_host_step(keys)==0,(i,dll.km_host_error())
     if i in [0,34,69,99,124,139]:
         frame=C.string_at(dll.km_host_screen(),320*240*2)
+        for y in range(200, 208):
+            row = frame[y * 640:y * 640 + 480]
+            assert any(row[x:x + 2] != row[:2] for x in range(2, len(row), 2)), (i, y, 'blank view strip')
         hashes.append({'frame':i,'sha256':hashlib.sha256(frame).hexdigest()})
         (root/f'artifacts/host-engine/frame-{i:03}.rgb565').write_bytes(frame)
 assert len({h['sha256'] for h in hashes})>=4,'frames do not change'

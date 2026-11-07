@@ -13,7 +13,7 @@ parser.add_argument('--host-test', action='store_true')
 parser.add_argument('--opt', choices=['Oz', 'O2', 'O3'], default='O2')
 parser.add_argument('--cache-kib', type=int, choices=[0,8], default=8)
 parser.add_argument('--legacy-input-queue', action='store_true', help='comparison only: build input commands after drawing')
-parser.add_argument('--square', action='store_true', help='240x200 world plus complete 40-row HUD')
+parser.add_argument('--square', action='store_true', help='240x208 displayed view plus 32-row status panel')
 parser.add_argument('--arena', choices=['sram', 'sramh'], default='sramh')
 args = parser.parse_args()
 HOST = args.host_test
