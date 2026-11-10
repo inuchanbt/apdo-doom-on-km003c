@@ -105,6 +105,18 @@ buttons. This establishes gameplay on the surveyed HW 2.1 unit with the earlier
 build. The video does not establish a full stock restore or test the updated
 v0.1.1 binary. The HW 2.1 release remains experimental.
 
+## v0.1.1 display correction on HW2.3
+
+On 2026-11-10 the project owner reported flashing the corrected firmware on
+their HW2.3 KM003C and confirmed that the gap above the status panel was gone
+and the game ran correctly. The tested `.mencrypt` has SHA-256
+`249ca43a5ec5f5f1bde0634368b87f4c7de77c4935adfa1d9f64e5503255e3dd`, matching the
+firmware bundled in both Windows ZIPs for [v0.1.1-independent](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.1-independent).
+
+This is an owner-reported application and gameplay check on one HW2.3 unit.
+The full v0.1.1 Windows installer and stock restoration workflows still await
+end-to-end hardware verification.
+
 ## Previously recorded engineering checks
 
 - Independent ARM firmware and Windows host compile; Clippy checks passed.
