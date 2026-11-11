@@ -10,12 +10,12 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-FIRMWARE = 'apdo-doom-km003c-v0.1.1-independent.mencrypt'
-NOTICES = 'apdo-doom-v0.1.0-independent-notices.zip'
+FIRMWARE = 'apdo-doom-km003c-v0.1.2-independent.mencrypt'
+NOTICES = 'apdo-doom-v0.1.2-independent-notices.zip'
 PAYLOAD_HASHES = {
-    FIRMWARE: '249ca43a5ec5f5f1bde0634368b87f4c7de77c4935adfa1d9f64e5503255e3dd',
+    NOTICES: '7e03875310539a121944c4aa7deab37d91c5f9538aa6c5309b0afba52875a5e3',
+    FIRMWARE: '666129410162fff3b1ef69888393e17edcd82ed6376b59b32b4d2d9b13f346a9',
     'DOOM.DAT': '6b25a4f1adb6f1f1f5f42226c272b93ccff4f356ac8d7034cf83712b2da70c08',
-    NOTICES: 'f50a2e4883f1a35460ba81b0ae50a7911c6b5d552fc1ce47b09f23360c977e81',
 }
 
 
@@ -39,7 +39,7 @@ def main():
     parser.add_argument('--tools', type=Path, required=True, help='Directory of both built Windows EXEs')
     parser.add_argument('--game', type=Path, required=True, help='Exact public E1M1 DOOM.DAT')
     parser.add_argument('--output', type=Path, required=True, help='New installer ZIP path')
-    parser.add_argument('--hardware', choices=('2.3', '2.1'), default='2.3')
+    parser.add_argument('--hardware', choices=('2.3',), default='2.3')
     args = parser.parse_args()
 
     sources = {

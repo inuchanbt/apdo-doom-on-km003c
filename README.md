@@ -14,13 +14,14 @@ See [branch and tool migration](docs/BRANCHES.md) when updating an existing work
 
 ## Experimental firmware download — read the risks first
 
-[Download v0.1.1-independent](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.1-independent).
-Choose the Windows x64 ZIP for your meter's hardware revision and open its
-`START-HERE.md`. Both packages include the app and Freedoom E1M1 game data.
+[Download v0.1.2-independent — HW 2.3](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.2-independent).
+Open `START-HERE.md` in the Windows x64 ZIP. It includes the app, matching HID
+host and Freedoom E1M1 game data.
 Use the attached `-source.tar.gz` for matching project and dependency sources.
 
-The installers target **HW 2.3** and **HW 2.1 (experimental)** on stock FW 2.0.7.
-An earlier HW 2.1 trial reached gameplay on one collaborator's meter.
+The new installer targets **HW 2.3** on stock FW 2.0.7. The historical
+[v0.1.1 HW 2.1 trial](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.1-independent)
+remains available separately; its earlier trial reached gameplay on one collaborator's meter.
 See [validation and compatibility](docs/VALIDATION.md#hw21-gameplay-report).
 
 **Installing this can permanently disable your meter or lose factory data.
@@ -61,6 +62,11 @@ server running and click **Enable keyboard**. Use W/S or ↑/↓ to move, A/D or
 to turn, Space/Ctrl to fire, E to use, Esc for the menu and Enter to confirm.
 Turn off **Live preview** when prioritizing smooth motion on the meter.
 See [PC controls](docs/PC-CONTROLS.md) and [screen capture](docs/SCREEN-CAPTURE.md).
+
+v0.1.2 uses a shared generic HID USB identity. **Use the matching PC helper with
+the new firmware.** The owner confirmed flashing and operation on 2026-11-11;
+a complete install/restore round trip has not been repeated with this transport.
+See [USB identity and migration](docs/USB-IDENTITY.md).
 
 ## What is independent?
 

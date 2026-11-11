@@ -1,5 +1,10 @@
 # Experimental prebuilt installation — HW2.3 only
 
+For the current HID release, use the **v0.1.2 HW2.3 Windows installer** and its
+`START-HERE.md` ([download](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.2-independent)).
+It includes the matching host, firmware and game data. The manual commands below
+describe the historical v0.1.0 release; do not mix its old host with HID firmware.
+
 Release: [v0.1.0-independent](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.0-independent).
 
 **This can permanently disable the meter or lose factory data. Recovery is not

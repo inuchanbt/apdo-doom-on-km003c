@@ -51,6 +51,13 @@ not part of the image. Programming is a separate, qualified operation.
 
 ## Checks
 
+Current firmware uses the shared generic HID identity documented in
+[USB-IDENTITY.md](USB-IDENTITY.md). Build the host and firmware together: old
+helpers only understand the earlier WinUSB application. The new host retains
+that old transport for existing installations. Stock backup/DFU tools and their
+qualified backup format are unchanged. The owner confirmed flashing and operation
+of the HID build on 2026-11-11; see the validation scope in USB-IDENTITY.md.
+
 ```powershell
 . .\scripts\env.ps1
 cargo test --manifest-path independent/Cargo.toml -p apdo-protocol -p apdo-host

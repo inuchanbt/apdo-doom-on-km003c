@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
 #![no_std]
+#[cfg(test)]
+extern crate std;
+pub mod usb;
 pub const VERSION: u8 = 1;
 pub const REQUEST_BYTES: usize = 64;
 pub const MAX_DATA: usize = 1024;

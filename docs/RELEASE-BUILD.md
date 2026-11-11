@@ -21,9 +21,10 @@ $env:APDO_LLVM_BIN = 'C:\path\to\llvm-mingw\bin'
 .\scripts\build-firmware.ps1 -Python python -Name rebuilt-independent
 ```
 
-To build the HW 2.1 Windows tools, add `--features hw21-trial` to the
-Cargo build of both `apdo-host` and `km003c-backup`. Both installers
-use the same independent ARM application.
+The v0.1.2 HID installer is HW2.3 only. Historical HW2.1 tools are built with
+`--features hw21-trial` for both `apdo-host` and `km003c-backup`; their image
+allowlist has not been expanded to the new HID firmware. Use the v0.1.1 archive
+to reproduce that trial package.
 
 Do not run `prepare-sources.py` in this unpacked archive: its upstream sources
 are already present, with the local DMC patch applied; no `.git` directories are

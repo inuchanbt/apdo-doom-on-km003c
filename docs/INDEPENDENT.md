@@ -9,7 +9,9 @@ The active firmware is `independent/firmware`, the USB wire format is
 
 New board code implements application vectors/metadata, the recovery request,
 GPIO, synchronous open-drain AW9523 I2C, ST7789 commands, shared QSPI ownership,
-NOR transactions, physical controls and the DOOM-only WinUSB interface.
+NOR transactions, physical controls and the DOOM-only USB interface. Current
+source builds use generic HID; the earlier releases used WinUSB. See
+[USB identity and migration](USB-IDENTITY.md).
 Hardware register facts and wiring established during the earlier investigation
 are reused. We reviewed existing implementations; this is **not** a strict
 clean-room implementation or a claim that no upstream work was consulted.
@@ -54,7 +56,9 @@ comparison with 8 MHz on each startup; `-SafeNor` keeps 8 MHz.
 
 The preview has a live 120x120 RGB565 shadow and an immutable snapshot. Requests
 carry a version, opcode and sequence; replies are bounded to 1024 data bytes.
-Full-size USB packets receive a terminating zero-length packet. A screenshot's
+Current HID replies use padded 64-byte reports with an explicit data length;
+only the earlier WinUSB transport uses bulk terminating zero-length packets.
+A screenshot's
 snapshot ID must match for every chunk. Input expires after 750 ms at the meter;
 the host stops refreshing nonzero input after 500 ms without a fresh command.
 Physical Exit held for two seconds requests the native loader.

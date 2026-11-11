@@ -13,4 +13,6 @@ ZIPを展開し、`Install-APDO-DOOM.cmd` をダブルクリックします。Wi
 
 手動DFUは、本体のExitを押しながら側面HIDを挿し直し、純正の更新画面で離します。外部NORの書き込みが中断され、読み戻しが純正・ゲーム版のどちらの既知状態とも一致しない場合、復元は停止します。画面のエラーとフォルダーを保管してください。
 
-同梱のファームとゲームデータは [v0.1.1-independent](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.1-independent) の公開バイナリに対応します。対応ソースと依存ライセンスは同リリースの `-source.tar.gz` と、同梱の `-notices.zip` を参照してください。ゲームデータは Freedoom E1M1 です。
+同梱のファームとゲームデータは [v0.1.2-independent](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.2-independent) の公開バイナリに対応します。新しいHID通信には同梱の対応PCツールを使ってください。対応ソースと依存ライセンスは同リリースの `-source.tar.gz` と、同梱の `-notices.zip` を参照してください。ゲームデータは Freedoom E1M1 です。
+
+2026-11-11に所有者が新ファームの書き込みと正常動作を確認しました。この版で初回導入から完全復元までを再検証したという報告ではありません。従来のHW2.1試験版はv0.1.1のリリースを利用してください。

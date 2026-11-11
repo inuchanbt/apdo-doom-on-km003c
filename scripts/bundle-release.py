@@ -26,6 +26,7 @@ SCRIPT_NAMES = {
     'install-windows.ps1', 'Install-APDO-DOOM.cmd',
 }
 DOC_NAMES = {'BUILD.md', 'FIRST-BACKUP.md', 'INDEPENDENT.md', 'BINARY-RELEASE.md',
+             'USB-IDENTITY.md',
              'INSTALL-PREBUILT.md', 'RELEASE-BUILD.md', 'BRANCHES.md',
              'VALIDATION.md', 'PC-CONTROLS.md', 'SCREEN-CAPTURE.md',
              'RECOVERY.md', 'PERFORMANCE.md', 'INSTALL-WINDOWS.md',

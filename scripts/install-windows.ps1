@@ -10,10 +10,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+if ($TargetHardware -ne '2.3') { throw 'This HID release targets HW 2.3. Use the historical v0.1.1 package for the HW 2.1 trial.' }
 
 $hostExe = Join-Path $PSScriptRoot 'apdo-host.exe'
 $backupExe = Join-Path $PSScriptRoot 'km003c-backup.exe'
-$firmware = Join-Path $PSScriptRoot 'apdo-doom-km003c-v0.1.1-independent.mencrypt'
+$firmware = Join-Path $PSScriptRoot 'apdo-doom-km003c-v0.1.2-independent.mencrypt'
 $game = Join-Path $PSScriptRoot 'DOOM.DAT'
 $trial = $TargetHardware -eq '2.1'
 $trialSteps = [Collections.Generic.List[object]]::new()
@@ -72,7 +73,7 @@ foreach ($exe in @($hostExe, $backupExe)) {
         throw "Installer tool $(Split-Path -Leaf $exe) does not match the HW $TargetHardware package. Use the included launcher."
     }
 }
-Assert-Digest $firmware '249ca43a5ec5f5f1bde0634368b87f4c7de77c4935adfa1d9f64e5503255e3dd'
+Assert-Digest $firmware '666129410162fff3b1ef69888393e17edcd82ed6376b59b32b4d2d9b13f346a9'
 Assert-Digest $game '6b25a4f1adb6f1f1f5f42226c272b93ccff4f356ac8d7034cf83712b2da70c08'
 if ($Action -eq 'CheckPackage') {
     Write-Host 'Installer payloads passed SHA-256 verification.'

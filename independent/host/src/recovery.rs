@@ -241,20 +241,16 @@ pub async fn start(stock: &Path, package: &Path) -> Result<()> {
     let selected = &manifest.usb_port;
     let result = reader.device.jump_to_application().await;
     drop(reader);
-    let expected_product = if image.metadata().version.contains("-apdo") {
-        "APDO DOOM"
-    } else {
-        "POWER-Z KM003C"
-    };
+    let independent = image.metadata().version.contains("-apdo");
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
     while std::time::Instant::now() < deadline {
         use nusb::MaybeFuture;
         let found = nusb::list_devices().wait()?.any(|d| {
             d.bus_id() == selected.bus_id
                 && d.port_chain() == selected.port_chain
-                && d.product_string() == Some(expected_product)
+                && d.product_string() == Some("POWER-Z KM003C")
         });
-        if found && expected_product == "POWER-Z KM003C" {
+        if found && !independent {
             let selected = DeviceSelector::PortPath {
                 bus_id: selected.bus_id.clone(),
                 port_chain: selected.port_chain.clone(),
@@ -291,7 +287,7 @@ pub async fn start(stock: &Path, package: &Path) -> Result<()> {
             println!("Original application connected and identity verified");
             return Ok(());
         }
-        if found && let Ok(mut client) = crate::Client::open_on(Some(selected)) {
+        if independent && let Ok(mut client) = crate::Client::open_on(Some(selected)) {
             let status = client.info()?;
             println!(
                 "Independent application connected: running={}, frames={}",
@@ -337,17 +333,9 @@ pub async fn exit_test(stock: &Path, package: &Path) -> Result<()> {
 }
 
 pub async fn enter_loader(mut client: crate::Client) -> Result<()> {
-    use nusb::MaybeFuture;
-    let mut devices = nusb::list_devices().wait()?.filter(|d| {
-        d.vendor_id() == 0x5fc9 && d.product_id() == 0x63 && d.product_string() == Some("APDO DOOM")
-    });
-    let info = devices
-        .next()
-        .context("Independent application is not connected")?;
-    ensure!(devices.next().is_none(), "Connect only one APDO device");
     let selected = DeviceSelector::PortPath {
-        bus_id: info.bus_id().to_owned(),
-        port_chain: info.port_chain().to_vec(),
+        bus_id: client.port.bus_id.clone(),
+        port_chain: client.port.port_chain.clone(),
     };
     let result = client
         .call(apdo_protocol::INPUT, 0, 0)
@@ -363,6 +351,22 @@ pub async fn enter_loader(mut client: crate::Client) -> Result<()> {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
     anyhow::bail!("Native DFU was not confirmed after loader request: {result:?}")
+}
+
+pub async fn diagnostics(stock: &Path, out: &Path) -> Result<()> {
+    let (mut reader, _, _) = open(stock).await?;
+    let bytes = reader.read(0x200f0000, 4096).await?;
+    fs::create_dir(out).context("Diagnostic directory must be new")?;
+    backup::save(&out.join("retention.bin"), &bytes)?;
+    let text = String::from_utf8_lossy(bytes[0xe00..0xf00].split(|b| *b == 0).next().unwrap());
+    backup::save_json(
+        &out.join("status.json"),
+        &serde_json::json!({
+        "stage":u32::from_le_bytes(bytes[0xfc4..0xfc8].try_into()?),
+        "reason":u32::from_le_bytes(bytes[0xfcc..0xfd0].try_into()?),"retained_text":text}),
+    )?;
+    println!("Saved read-only startup diagnostics");
+    Ok(())
 }
 
 #[cfg(test)]
@@ -426,20 +430,4 @@ mod tests {
         assert!(package(&raw, &root.join("bad"), false).is_err());
         fs::remove_dir_all(root).unwrap();
     }
-}
-
-pub async fn diagnostics(stock: &Path, out: &Path) -> Result<()> {
-    let (mut reader, _, _) = open(stock).await?;
-    let bytes = reader.read(0x200f0000, 4096).await?;
-    fs::create_dir(out).context("Diagnostic directory must be new")?;
-    backup::save(&out.join("retention.bin"), &bytes)?;
-    let text = String::from_utf8_lossy(bytes[0xe00..0xf00].split(|b| *b == 0).next().unwrap());
-    backup::save_json(
-        &out.join("status.json"),
-        &serde_json::json!({
-        "stage":u32::from_le_bytes(bytes[0xfc4..0xfc8].try_into()?),
-        "reason":u32::from_le_bytes(bytes[0xfcc..0xfd0].try_into()?),"retained_text":text}),
-    )?;
-    println!("Saved read-only startup diagnostics");
-    Ok(())
 }

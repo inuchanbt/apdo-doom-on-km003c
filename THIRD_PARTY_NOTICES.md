@@ -60,6 +60,12 @@ No prebuilt host executable is part of this release.
 
 ## Supplied media and historical code
 
+Current source builds use Objective Development's shared generic HID USB ID
+under its published sharing conditions; this is separate from software licensing.
+See [USB identity and migration](docs/USB-IDENTITY.md). The host's pinned
+`hidapi` Rust library is MIT-licensed and uses the standard Windows HID driver.
+Preserve its upstream notices/source in future host/source release bundles.
+
 The enclosure image `web/assets/km003c-shell.webp`, README screenshots and hardware
 video were supplied/created for this project. Original recording/image rights
 remain with their owners; the source-code MIT license grants no additional rights

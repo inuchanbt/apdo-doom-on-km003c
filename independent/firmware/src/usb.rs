@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-//! DOOM-only WinUSB bulk interface. No measurement/PD RPC is linked.
+//! DOOM-only generic HID interface. No measurement/PD RPC is linked.
 use crate::board::*;
 use apdo_protocol as wire;
 use embassy_usb::{
     Builder, Config,
-    driver::{Endpoint, EndpointIn, EndpointOut},
-    msos,
+    class::hid::device::{Config as HidConfig, HidReaderWriter, State},
+    class::hid::{HidBootProtocol, HidSubclass},
 };
 use embassy_usb_synopsys_otg::{Driver, OtgInstance, PhyType, StateStorage, otg_v1::Otg};
 static STORAGE: StateStorage<6> =
@@ -69,33 +69,35 @@ pub fn initialize(buffer: &'static mut [u8]) -> Driver<'static> {
 }
 #[embassy_executor::task]
 pub async fn task(driver: Driver<'static>) {
-    let mut config = Config::new(0x5fc9, 0x0063);
-    config.manufacturer = Some("APDO project");
-    config.product = Some("APDO DOOM");
+    let mut config = Config::new(wire::usb::VID, wire::usb::PID);
+    config.manufacturer = Some(wire::usb::MANUFACTURER);
+    config.product = Some(wire::usb::PRODUCT);
     config.serial_number = None;
     config.max_power = 100;
-    config.device_class = 0xff;
+    config.device_class = 0;
     config.device_sub_class = 0;
     config.device_protocol = 0;
     config.composite_with_iads = false;
     let (mut cfg, mut bos, mut os, mut control) = ([0; 256], [0; 256], [0; 256], [0; 64]);
+    let mut hid_state = State::new();
     let mut builder = Builder::new(driver, config, &mut cfg, &mut bos, &mut os, &mut control);
-    builder.msos_descriptor(msos::windows_version::WIN8_1, 0x20);
-    builder.msos_feature(msos::CompatibleIdFeatureDescriptor::new("WINUSB", ""));
-    builder.msos_feature(msos::RegistryPropertyFeatureDescriptor::new(
-        "DeviceInterfaceGUIDs",
-        msos::PropertyData::RegMultiSz(&["{C7EE9A08-F519-4D3B-A0D9-308134A4A5EA}"]),
-    ));
-    let mut function = builder.function(0xff, 0, 0);
-    let mut interface = function.interface();
-    let mut alt = interface.alt_setting(0xff, 0, 0, None);
-    let mut out = alt.endpoint_bulk_out(None, 64);
-    let mut input = alt.endpoint_bulk_in(None, 64);
-    drop(function);
+    let hid = HidReaderWriter::<_, 64, 64>::new(
+        &mut builder,
+        &mut hid_state,
+        HidConfig {
+            report_descriptor: wire::usb::REPORT_DESCRIPTOR,
+            request_handler: None,
+            poll_ms: 1,
+            max_packet_size: 64,
+            hid_subclass: HidSubclass::No,
+            hid_boot_protocol: HidBootProtocol::None,
+        },
+    );
+    let (mut out, mut input) = hid.split();
     let mut usb = builder.build();
     let server = async {
         loop {
-            out.wait_enabled().await;
+            out.ready().await;
             let mut req = [0; 64];
             let Ok(n) = out.read(&mut req).await else {
                 continue;
@@ -138,21 +140,16 @@ pub async fn task(driver: Driver<'static>) {
                 }
             }
             let header = wire::reply_header(op, req[7], status, value, len);
-            if input.write(&header).await.is_err() {
-                continue;
-            }
-            for chunk in data[..len].chunks(64) {
-                if input.write(chunk).await.is_err() {
+            let mut index = 0;
+            let mut sent = true;
+            while let Some(report) = wire::usb::reply_report(&header, &data[..len], index) {
+                if input.write(&report).await.is_err() {
+                    sent = false;
                     break;
                 }
+                index += 1;
             }
-            // End a short transfer even when its last data packet is full.
-            // In particular the final 128-byte preview chunk would otherwise
-            // leave a host's 1024-byte read waiting for more bytes.
-            if len > 0 && len.is_multiple_of(64) {
-                let _ = input.write(&[]).await;
-            }
-            if op == wire::LOADER {
+            if sent && op == wire::LOADER {
                 crate::loader(0x600d1003);
             }
         }

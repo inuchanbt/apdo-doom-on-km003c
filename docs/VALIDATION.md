@@ -1,5 +1,20 @@
 # Validation — independent firmware
 
+## Shared HID firmware reported working on 2026-11-11
+
+The owner reported flashing `2.0.7-apdo3` to the KM003C and confirmed operation
+without problems. v0.1.2 publishes the exact 225,512-byte update container from
+that build (SHA-256 `666129410162fff3b1ef69888393e17edcd82ed6376b59b32b4d2d9b13f346a9`)
+with its matching host. This confirms owner-reported flashing/operation; it does
+not assert separately observed Web-preview performance, all HID commands or a
+new full stock-install/NOR/restore round trip. The earlier round-trip evidence
+below remains specific to its earlier build. The new release targets HW2.3;
+the historical HW2.1 trial is not updated.
+
+The shared-ID change passed 51 offline/model/HTTP tests, host/protocol/ARM Clippy,
+ARM release linking, Windows host release building and HW2.1 host compilation.
+See [USB identity and migration](USB-IDENTITY.md) for transport details.
+
 ## Hardware round trip reported on 2026-10-31
 
 The meter owner confirmed: the **new independent procedure from initial

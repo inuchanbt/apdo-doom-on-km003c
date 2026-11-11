@@ -1,85 +1,18 @@
 // SPDX-License-Identifier: MIT
-use anyhow::{Context, Result, ensure};
+use anyhow::{Result, ensure};
 use apdo_protocol as wire;
 mod recovery;
 mod storage;
-use nusb::{
-    MaybeFuture,
-    io::{EndpointRead, EndpointWrite},
-    transfer::{Bulk, In, Out},
-};
 use serde_json::json;
 use std::{
-    io::{self, BufRead, Read, Write},
+    io::{self, BufRead, Write},
     sync::mpsc,
     time::{Duration, Instant},
 };
 
-struct Client {
-    reader: EndpointRead<Bulk>,
-    writer: EndpointWrite<Bulk>,
-    sequence: u8,
-}
-impl Client {
-    fn open() -> Result<Self> {
-        Self::open_on(None)
-    }
-    fn open_on(port: Option<&km003c_backup::UsbPort>) -> Result<Self> {
-        let mut found = nusb::list_devices().wait()?.filter(|d| {
-            d.vendor_id() == 0x5fc9
-                && d.product_id() == 0x63
-                && d.product_string() == Some("APDO DOOM")
-                && port.is_none_or(|p| d.bus_id() == p.bus_id && d.port_chain() == p.port_chain)
-        });
-        let device = found
-            .next()
-            .context("Connect a KM003C running the independent APDO firmware")?;
-        ensure!(found.next().is_none(), "Connect only one APDO device");
-        let device = device.open().wait()?;
-        let interface = device.claim_interface(0).wait()?;
-        Ok(Self {
-            reader: interface
-                .endpoint::<Bulk, In>(0x81)?
-                .reader(1024)
-                .with_read_timeout(Duration::from_secs(10)),
-            writer: interface
-                .endpoint::<Bulk, Out>(0x01)?
-                .writer(64)
-                .with_write_timeout(Duration::from_secs(2)),
-            sequence: 0,
-        })
-    }
-    fn call(&mut self, op: u8, a: u32, b: u32) -> Result<(u32, Vec<u8>)> {
-        self.exchange(wire::request(op, 0, a, b))
-    }
-    fn exchange(&mut self, mut req: [u8; 64]) -> Result<(u32, Vec<u8>)> {
-        self.sequence = self.sequence.wrapping_add(1);
-        req[7] = self.sequence;
-        let op = req[5];
-        self.writer.write_all(&req)?;
-        self.writer.flush()?;
-        let mut header = [0; 16];
-        self.reader.read_exact(&mut header)?;
-        let len = wire::reply_len(&header).context("Invalid APDO reply header")?;
-        ensure!(
-            header[5] == op && header[7] == self.sequence,
-            "APDO reply sequence mismatch"
-        );
-        let mut data = vec![0; len];
-        self.reader.read_exact(&mut data)?;
-        ensure!(
-            header[6] == wire::OK,
-            "Device rejected command {op}: status {}",
-            header[6]
-        );
-        Ok((wire::word(&header, 8), data))
-    }
-    fn info(&mut self) -> Result<[u32; 8]> {
-        let (_, data) = self.call(wire::INFO, 0, 0)?;
-        ensure!(data.len() == 32, "Invalid device status");
-        Ok(core::array::from_fn(|i| wire::word(&data, i * 4)))
-    }
-}
+mod usb;
+use usb::Client;
+
 fn output(value: serde_json::Value) {
     println!("{value}");
     let _ = io::stdout().flush();

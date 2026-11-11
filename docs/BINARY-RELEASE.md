@@ -1,5 +1,16 @@
 # Independent experimental binary releases
 
+[v0.1.2-independent](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.2-independent)
+adds generic HID communication, the matching Windows host and an HW2.3 installer
+for stock FW 2.0.7. Firmware metadata is `2.0.7-apdo3`. The exact previously built
+firmware was flashed and reported working by the owner on 2026-11-11. The new
+transport has not had a newly verified full initial-install/stock-restore round
+trip or performance benchmark. See [USB identity and migration](USB-IDENTITY.md).
+The package includes firmware, game data, notices, complete corresponding source
+and checksums. The risks and backup requirements below continue to apply.
+
+The v0.1.2 release is HW2.3 only. Do not use its installer for HW2.1.
+
 The [v0.1.1 Windows installers](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.1-independent)
 include the corrected display, the application and the Freedoom E1M1 game data.
 Choose HW 2.3 or the experimental HW 2.1 package for stock FW 2.0.7. Start with

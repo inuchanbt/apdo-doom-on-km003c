@@ -17,7 +17,7 @@ const fn metadata() -> [u8; 64] {
         m[n] = 255;
         n += 1;
     }
-    let fields: [&[u8]; 3] = [b"KM003C", b"2.0.7-apdo2", b"2026.10.31"];
+    let fields: [&[u8]; 3] = [b"KM003C", b"2.0.7-apdo3", b"2026.11.11"];
     let mut f = 0;
     while f < 3 {
         n = 0;

@@ -14,13 +14,14 @@
 
 ## ダウンロードとリスク
 
-[独立版 v0.1.1-independent をダウンロード](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.1-independent)。
-本体のハードウェア版に合うWindows x64用ZIPを選び、同梱の `START-HERE.md` を開いてください。
-どちらのZIPにもファームとFreedoom E1M1データが入っています。
+[独立版 v0.1.2-independent — HW 2.3 をダウンロード](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.2-independent)。
+Windows x64用ZIPの `START-HERE.md` を開いてください。
+ファーム・対応HID用PCツール・Freedoom E1M1データが入っています。
 対応する全ソースは同じReleaseの `-source.tar.gz` に添付しています。
 
-対象は純正FW 2.0.7の **HW 2.3** と **HW 2.1（試験版）** です。
-修正前の試験版では協力者のHW 2.1の1台でゲームが動きました。
+新版の対象は純正FW 2.0.7の **HW 2.3** です。
+[従来のv0.1.1 HW 2.1試験版](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.1-independent)は別途残しています。
+その修正前の試験版では協力者のHW 2.1の1台でゲームが動きました。
 [実機確認の範囲](docs/VALIDATION.md#hw21-gameplay-report)を参照してください。
 
 **導入により本体が永久に使用不能になったり、工場出荷時のデータを失う可能性があります。
@@ -55,6 +56,10 @@ Windows用ZIPにはプレイ用のゲームデータを同梱しています。�
 W/S・↑/↓で移動、A/D・←/→で旋回、Space/Ctrlで射撃、Eで扉・スイッチ、Escでメニュー、Enterで決定です。
 本体の滑らかさを優先するときは **Live preview** をOFFにしてください。
 [PC操作](docs/PC-CONTROLS.md)・[画面キャプチャ](docs/SCREEN-CAPTURE.md)の説明も参照できます。
+
+v0.1.2は共用HID IDを使います。**新ファームには同梱の対応PCツールを使ってください。**
+2026-11-11に所有者が書き込みと正常動作を確認しました。新通信方式での初回導入から完全復元までの
+再検証は未実施です。[USB IDと移行の詳細](docs/USB-IDENTITY.md)を参照してください。
 
 このブランチのビルドは、ライセンス未確認の `okhsunrog/km003c-firmware` とその基板クレート、
 生成済み `hc32f460-pac` を取得・リンクしません。基板起動・液晶／NOR・明るさ・ボタン・USBは

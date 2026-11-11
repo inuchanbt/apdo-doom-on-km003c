@@ -18,6 +18,13 @@ USB communication. `play.ps1 -NoBrowser -Port 50594` prints a fixed local URL
 without opening a tab. Only Python's standard library and the built host are used.
 The server listens on `127.0.0.1`.
 
+Current source builds use generic HID (`16c0:05df`, exact manufacturer/product
+matching). Rebuild the host together with the new firmware and restart the
+controller. The new host also supports the earlier WinUSB DOOM firmware. Public
+v0.1.0/v0.1.1 packages remain unchanged. The owner confirmed flashing and
+operation of v0.1.2 on 2026-11-11; see [USB identity and migration](USB-IDENTITY.md)
+for the scope of that check.
+
 | Action | Key |
 | --- | --- |
 | Forward / backward | W / S or ↑ / ↓ |
