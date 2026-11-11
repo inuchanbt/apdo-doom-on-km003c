@@ -91,6 +91,14 @@ pub fn acquire(stock: &Path, out: &Path) -> Result<()> {
     println!("Qualified full original NOR backup saved");
     Ok(())
 }
+/// Validate recovery files before temporarily replacing a restored stock app.
+/// This command is offline and never opens a USB device.
+pub fn verify_restore(stock: &Path, nor: &Path, pack: &Path) -> Result<()> {
+    let original = original(nor, stock)?;
+    planned(&original, &fs::read(pack)?)?;
+    println!("Qualified stock/NOR backups and game pack verified (no USB access)");
+    Ok(())
+}
 fn planned(original: &[u8], pack: &[u8]) -> Result<Vec<u8>> {
     ensure!(
         original.len() == NOR_BYTES,

@@ -24,9 +24,11 @@ SCRIPT_NAMES = {
     'test-input-cadence.py', 'test-prepare-sources.py', 'vendor-release.py',
     'bundle-release.py', 'bundle-windows-installer.py',
     'install-windows.ps1', 'Install-APDO-DOOM.cmd',
+    'Remove-Leftover-DOOM-Data.cmd',
 }
 DOC_NAMES = {'BUILD.md', 'FIRST-BACKUP.md', 'INDEPENDENT.md', 'BINARY-RELEASE.md',
              'USB-IDENTITY.md',
+             'REMOVE-DOOM-DATA.md',
              'INSTALL-PREBUILT.md', 'RELEASE-BUILD.md', 'BRANCHES.md',
              'VALIDATION.md', 'PC-CONTROLS.md', 'SCREEN-CAPTURE.md',
              'RECOVERY.md', 'PERFORMANCE.md', 'INSTALL-WINDOWS.md',

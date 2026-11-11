@@ -15,6 +15,14 @@ The shared-ID change passed 51 offline/model/HTTP tests, host/protocol/ARM Clipp
 ARM release linking, Windows host release building and HW2.1 host compilation.
 See [USB identity and migration](USB-IDENTITY.md) for transport details.
 
+The release also adds removal of leftover game data after the stock application
+was already restored. Four USB-free Windows tests exercise the actual installer
+with stub executables: complete operation order, invalid NOR backup, wrong
+installed app, and NOR-restore failure. They confirm that a failed check prevents
+firmware writes, and a failed NOR restoration prevents stock flashing. This
+additional workflow is not a hardware test. The total is 55 tests across the HID
+and cleanup changes; see [the cleanup guide](REMOVE-DOOM-DATA.md).
+
 ## Hardware round trip reported on 2026-10-31
 
 The meter owner confirmed: the **new independent procedure from initial

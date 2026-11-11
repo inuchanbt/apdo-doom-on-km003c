@@ -57,6 +57,10 @@ W/S・↑/↓で移動、A/D・←/→で旋回、Space/Ctrlで射撃、Eで扉�
 本体の滑らかさを優先するときは **Live preview** をOFFにしてください。
 [PC操作](docs/PC-CONTROLS.md)・[画面キャプチャ](docs/SCREEN-CAPTURE.md)の説明も参照できます。
 
+純正アプリへ戻した後にゲームデータが残る場合は、Windows用ZIPの
+`Remove-Leftover-DOOM-Data.cmd`（メニュー5）と導入時の検証済みバックアップを使って復元できます。
+[残ったDOOMデータを取り除く手順](docs/REMOVE-DOOM-DATA.md)を参照してください。
+
 v0.1.2は共用HID IDを使います。**新ファームには同梱の対応PCツールを使ってください。**
 2026-11-11に所有者が書き込みと正常動作を確認しました。新通信方式での初回導入から完全復元までの
 再検証は未実施です。[USB IDと移行の詳細](docs/USB-IDENTITY.md)を参照してください。

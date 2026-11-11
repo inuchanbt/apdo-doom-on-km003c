@@ -10,6 +10,11 @@ The package includes firmware, game data, notices, complete corresponding source
 and checksums. The risks and backup requirements below continue to apply.
 
 The v0.1.2 release is HW2.3 only. Do not use its installer for HW2.1.
+The Windows kit includes `Remove-Leftover-DOOM-Data.cmd` / menu item 5 for
+restoring original NOR after the stock app was already restored. It requires
+the original qualified backups and temporarily rewrites firmware; this added
+workflow has software checks but no new hardware round-trip confirmation.
+See [the cleanup guide](REMOVE-DOOM-DATA.md).
 
 The [v0.1.1 Windows installers](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.1-independent)
 include the corrected display, the application and the Freedoom E1M1 game data.

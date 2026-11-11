@@ -67,6 +67,7 @@ python scripts/test-prepare-sources.py
 python scripts/build-engine.py --host-test --square
 python scripts/test-engine.py
 python scripts/test-input-cadence.py
+python -m unittest discover -s tests -p test_windows_cleanup.py
 ```
 
 The hardware subset's register-model tests check clock transitions, timeout

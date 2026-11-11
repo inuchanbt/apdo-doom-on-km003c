@@ -175,6 +175,13 @@ fn run() -> Result<()> {
             );
             return recovery::audit(args[1].as_ref(), args[2].as_ref());
         }
+        "verify-nor" => {
+            ensure!(
+                args.len() == 4,
+                "Usage: apdo-host verify-nor STOCK_BACKUP NOR_BACKUP PACK"
+            );
+            return storage::verify_restore(args[1].as_ref(), args[2].as_ref(), args[3].as_ref());
+        }
         "nor-backup" => {
             ensure!(
                 args.len() == 3,

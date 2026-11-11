@@ -10,6 +10,7 @@ ZIPを展開し、`Install-APDO-DOOM.cmd` をダブルクリックします。Wi
 2. **Back up stock firmware only** は書き込みを行わず、純正ファームと外部NORの先頭3 MiBを含むバックアップを作ります。あとで項目1にこのフォルダーを指定できます。外部NORの残り1 MiBは項目1でゲームデータを書き込む前に取得します。
 3. **Restore original NOR and stock firmware** は項目1で保存したフォルダーを選びます。指示に従って手動DFUに入り、次の起動でOKを押し続けてFreedoomのロゴが出たら離します。外部NORを復元し全4 MiBを照合したあと、自動でDFUに戻って純正ファームを書き込み、純正の起動を照合します。終了後は純正画面と測定機能を確認してください。
 4. **Recover stock app after an app-only install failure** は、項目1がゲームデータの書き込みを開始する前に止まった場合に使います。当時のインストーラーフォルダーを指定し、画面の指示で手動DFUに入ります。
+5. **Remove leftover DOOM data after stock firmware was already restored** は、既に純正アプリへ戻したもののゲームデータが残っている場合に使います。`Remove-Leftover-DOOM-Data.cmd` からも開始できます。元の検証済みバックアップを指定し、一時的に保存領域サービスを書き込んでNORを復元したあと、純正アプリへ戻します。[詳しい手順](REMOVE-DOOM-DATA.md)を読んでください。この追加操作の実機検証は未実施です。
 
 手動DFUは、本体のExitを押しながら側面HIDを挿し直し、純正の更新画面で離します。外部NORの書き込みが中断され、読み戻しが純正・ゲーム版のどちらの既知状態とも一致しない場合、復元は停止します。画面のエラーとフォルダーを保管してください。
 

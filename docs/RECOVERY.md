@@ -10,6 +10,11 @@ or [FIRST-BACKUP.md, step 7](FIRST-BACKUP.md#7-restore-original-tester-functiona
 for the exact commands. **Restore NOR first, then the original application.**
 A stock application file alone does not restore overwritten game-data sectors.
 
+If you already restored the stock application but DOOM data remains, the HW2.3
+Windows kit has `Remove-Leftover-DOOM-Data.cmd` (menu item 5). It temporarily
+loads the storage service to restore your own verified original NOR, then
+restores stock again. See [the short cleanup guide](REMOVE-DOOM-DATA.md).
+
 Stop the Web controller before using the USB CLI. Enter native DFU, then start
 the independent service while holding physical OK to prevent engine
 initialization. Verify that `apdo-host info` shows no rendered frames before

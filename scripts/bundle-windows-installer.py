@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIRMWARE = 'apdo-doom-km003c-v0.1.2-independent.mencrypt'
 NOTICES = 'apdo-doom-v0.1.2-independent-notices.zip'
 PAYLOAD_HASHES = {
-    NOTICES: '7e03875310539a121944c4aa7deab37d91c5f9538aa6c5309b0afba52875a5e3',
+    NOTICES: '59ba198c9405aa64b90021a9be9f4410f682dcf2c423475e8d784e9bd9afed20',
     FIRMWARE: '666129410162fff3b1ef69888393e17edcd82ed6376b59b32b4d2d9b13f346a9',
     'DOOM.DAT': '6b25a4f1adb6f1f1f5f42226c272b93ccff4f356ac8d7034cf83712b2da70c08',
 }
@@ -57,7 +57,7 @@ def main():
         built_for = subprocess.check_output([str(path), 'target-hardware'], text=True).strip()
         if built_for != args.hardware:
             parser.error(f'{name} targets HW {built_for}. Build both tools for HW {args.hardware}.')
-    for name in ('Install-APDO-DOOM.cmd', 'install-windows.ps1'):
+    for name in ('Install-APDO-DOOM.cmd', 'Remove-Leftover-DOOM-Data.cmd', 'install-windows.ps1'):
         entries[name] = (ROOT / 'scripts' / name).read_bytes()
     guide = 'INSTALL-WINDOWS.md'
     if args.hardware == '2.1':
@@ -68,6 +68,7 @@ def main():
         entries['Install-APDO-DOOM.cmd'] = launcher.replace(original, original + b' -TargetHardware 2.1')
         guide = 'INSTALL-WINDOWS-HW21-TRIAL.ja.md'
     entries['START-HERE.md'] = (ROOT / 'docs' / guide).read_bytes()
+    entries['REMOVE-DOOM-DATA.md'] = (ROOT / 'docs/REMOVE-DOOM-DATA.md').read_bytes()
     entries['SHA256SUMS.txt'] = ''.join(f'{digest(data)}  {name}\n' for name, data in entries.items()).encode('ascii')
 
     args.output.parent.mkdir(parents=True, exist_ok=True)

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 [CmdletBinding()]
 param(
-    [ValidateSet('Menu', 'Install', 'Backup', 'Restore', 'RecoverApp', 'CheckPackage')]
+    [ValidateSet('Menu', 'Install', 'Backup', 'Restore', 'RecoverApp', 'RemoveDoomData', 'CheckPackage')]
     [string] $Action = 'Menu',
     [string] $BackupPath,
     [ValidateSet('2.3', '2.1')]
@@ -87,18 +87,23 @@ if ($Action -eq 'Menu') {
     Write-Host '2. Back up stock firmware only (read-only)'
     Write-Host '3. Restore original NOR and stock firmware'
     Write-Host '4. Recover stock app after an app-only install failure'
+    Write-Host '5. Remove leftover DOOM data after stock firmware was already restored'
     $Action = switch (Read-Host 'Select an operation') {
         '1' { 'Install' }
         '2' { 'Backup' }
         '3' { 'Restore' }
         '4' { 'RecoverApp' }
-        default { throw 'Choose 1, 2, 3 or 4.' }
+        '5' { 'RemoveDoomData' }
+        default { throw 'Choose 1, 2, 3, 4 or 5.' }
     }
     $BackupPath = Read-Host 'Backup folder path (blank creates a new folder for 1 or 2)'
 }
 
+if ($Action -eq 'RemoveDoomData' -and [string]::IsNullOrWhiteSpace($BackupPath)) {
+    $BackupPath = Read-Host 'Original installation backup folder path (contains stock and nor)'
+}
 if ([string]::IsNullOrWhiteSpace($BackupPath)) {
-    if ($Action -in 'Restore', 'RecoverApp') { throw 'Select the original installation backup folder.' }
+    if ($Action -in 'Restore', 'RecoverApp', 'RemoveDoomData') { throw 'Select the original installation backup folder.' }
     $folder = '{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'), ([guid]::NewGuid().ToString('N').Substring(0, 8))
     $BackupPath = Join-Path (Join-Path $env:LOCALAPPDATA 'APDO DOOM\Backups') $folder
 }
@@ -185,8 +190,17 @@ try {
         if (-not (Test-Path -LiteralPath (Join-Path $nor 'verified.json') -PathType Leaf)) {
             throw 'Full restore requires the verified 4 MiB NOR backup from this installation.'
         }
-        Confirm-Operation 'RESTORE' 'Restore this meter from the selected backup.'
+        Invoke-Tool $hostExe @('verify-nor', $stock, $nor, $game)
+        if ($Action -eq 'RemoveDoomData') {
+            Confirm-Operation 'REMOVE-DATA' 'Temporarily write the DOOM service, restore the original NOR, then restore stock firmware. This rewrites firmware and can brick the meter.'
+        } else {
+            Confirm-Operation 'RESTORE' 'Restore this meter from the selected backup.'
+        }
         Enter-Dfu
+        if ($Action -eq 'RemoveDoomData') {
+            Invoke-Tool $hostExe @('check-app', $stock, $restoreImage)
+            Invoke-Tool $hostExe @('flash', $stock, $firmware, (Join-Path $run 'cleanup-service-flash'))
+        }
         Read-Host 'Hold OK on the meter, press Enter, and keep holding OK until the Freedoom logo appears' | Out-Null
         Invoke-Tool $hostExe @('start', $stock, $firmware)
         Invoke-Tool $hostExe @('restore-nor', $stock, $nor, $game, (Join-Path $run 'nor-restore'))
@@ -195,6 +209,9 @@ try {
 
     Invoke-Tool $hostExe @('flash', $stock, $restoreImage, (Join-Path $run 'stock-flash'))
     Invoke-Tool $hostExe @('start', $stock, $restoreImage)
+    if ($Action -in 'Restore', 'RemoveDoomData') {
+        Write-Host 'Original NOR restored and all 4 MiB verified. DOOM game data was replaced with the original bytes.'
+    }
     Write-Host 'Stock firmware readback and boot identity verified. Check the original screen and measurement functions.'
     if ($trial) {
         $physicalCheck = if ((Read-Host 'Original screen and tester functions working? Type YES if verified') -ceq 'YES') { 'confirmed' } else { 'unconfirmed' }

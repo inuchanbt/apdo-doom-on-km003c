@@ -77,3 +77,8 @@ application and produced a 225,512-byte update container. The isolated local
 files are under `artifacts/usb-hid-validation/`. Their original validation record
 describes the pre-hardware-check state; the v0.1.2 release record separately
 records the owner's later flash/operation confirmation.
+
+The final Windows kit also includes a stock-first cleanup launcher, documented
+in [REMOVE-DOOM-DATA.md](REMOVE-DOOM-DATA.md). Four additional USB-free Windows
+orchestration tests cover its operation order and stop-on-failure cases (55
+tests across the two changes). This cleanup path is not hardware-qualified.

@@ -63,6 +63,10 @@ to turn, Space/Ctrl to fire, E to use, Esc for the menu and Enter to confirm.
 Turn off **Live preview** when prioritizing smooth motion on the meter.
 See [PC controls](docs/PC-CONTROLS.md) and [screen capture](docs/SCREEN-CAPTURE.md).
 
+Already restored stock firmware but still have game data in NOR? The Windows
+kit includes `Remove-Leftover-DOOM-Data.cmd` (menu item 5), using your original
+verified backup. See [the cleanup guide](docs/REMOVE-DOOM-DATA.md).
+
 v0.1.2 uses a shared generic HID USB identity. **Use the matching PC helper with
 the new firmware.** The owner confirmed flashing and operation on 2026-11-11;
 a complete install/restore round trip has not been repeated with this transport.
