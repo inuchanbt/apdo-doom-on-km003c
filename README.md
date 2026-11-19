@@ -48,7 +48,7 @@ The Windows installer writes the app and the included game pack in two stages.
 Use the included installer for this release.
 This is an unofficial, experimental project, supplied without project warranty; manufacturer approval/support is not claimed. See [release details](docs/BINARY-RELEASE.md).
 
-![Web controller](docs/images/km003c-web-controller.jpg)
+![Web controller](docs/images/km003c-web-controller.png)
 
 [Watch KWS-X1 and KM003C running DOOM together — 60 seconds · MP4 · 6.9 MB](docs/videos/apdo-doom-on-km003c.mp4).
 Both meters run the game and render on their own MCUs. The PC supplies controls

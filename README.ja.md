@@ -43,7 +43,7 @@ Windows x64用ZIPの `START-HERE.md` を開いてください。
 Windows用ZIPにはプレイ用のゲームデータを同梱しています。ファームとゲームデータは同梱のインストーラーで順に書き込みます。メーカーの承認・サポートをうたうものではなく、本プロジェクトは無保証です。メーカー保証の扱いは未確認です。
 詳しくは[リリース情報](docs/BINARY-RELEASE.md)を参照してください。
 
-![Web操作パネル](docs/images/km003c-web-controller.jpg)
+![Web操作パネル](docs/images/km003c-web-controller.png)
 
 [KWS-X1とKM003CでDOOMを同時プレイ — 60秒・MP4・6.9MB](docs/videos/apdo-doom-on-km003c.mp4)。
 2台とも本体のMCUでゲーム処理と描画を行います。PCは両方の操作と、
