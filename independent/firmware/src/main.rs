@@ -5,6 +5,7 @@ use cortex_m_rt::{entry, exception};
 mod board;
 mod bus;
 mod game;
+mod loader_gesture;
 mod splash;
 mod usb;
 
@@ -17,7 +18,7 @@ const fn metadata() -> [u8; 64] {
         m[n] = 255;
         n += 1;
     }
-    let fields: [&[u8]; 3] = [b"KM003C", b"2.0.7-apdo3", b"2026.11.11"];
+    let fields: [&[u8]; 3] = [b"KM003C", b"2.0.7-apdo5", b"2026.11.19"];
     let mut f = 0;
     while f < 3 {
         n = 0;

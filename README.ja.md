@@ -14,7 +14,7 @@
 
 ## ダウンロードとリスク
 
-[独立版 v0.1.2-independent — HW 2.3 をダウンロード](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.2-independent)。
+[独立版 v0.1.3-independent — HW 2.3 をダウンロード](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.3-independent)。
 Windows x64用ZIPの `START-HERE.md` を開いてください。
 ファーム・対応HID用PCツール・Freedoom E1M1データが入っています。
 対応する全ソースは同じReleaseの `-source.tar.gz` に添付しています。
@@ -61,9 +61,14 @@ W/S・↑/↓で移動、A/D・←/→で旋回、Space/Ctrlで射撃、Eで扉�
 `Remove-Leftover-DOOM-Data.cmd`（メニュー5）と導入時の検証済みバックアップを使って復元できます。
 [残ったDOOMデータを取り除く手順](docs/REMOVE-DOOM-DATA.md)を参照してください。
 
-v0.1.2は共用HID IDを使います。**新ファームには同梱の対応PCツールを使ってください。**
+v0.1.3は共用HID IDを使います。**新ファームには同梱の対応PCツールを使ってください。**
 2026-11-11に所有者が書き込みと正常動作を確認しました。新通信方式での初回導入から完全復元までの
 再検証は未実施です。[USB IDと移行の詳細](docs/USB-IDENTITY.md)を参照してください。
+
+v0.1.3では、Exitの長押し射撃でBOOTへ移らないよう変更しました。
+ゲーム中にBOOTへ移るには本体の4ボタンを同時に2秒押します。所有者がHW2.3で両操作を確認しています。
+頻出データを内蔵フラッシュに置く高速化も追加しました。実機でのfps比較は未実施です。
+[性能と検証の詳細](docs/PERFORMANCE.md)を参照してください。
 
 このブランチのビルドは、ライセンス未確認の `okhsunrog/km003c-firmware` とその基板クレート、
 生成済み `hc32f460-pac` を取得・リンクしません。基板起動・液晶／NOR・明るさ・ボタン・USBは

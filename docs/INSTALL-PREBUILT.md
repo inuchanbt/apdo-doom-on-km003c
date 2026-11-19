@@ -128,8 +128,8 @@ do not continue to game/stock startup after a failed readback.
 Open the printed HTTP URL (not the HTML file). Enable keyboard to play. Normal
 power-on shows the Freedoom banner for the existing three-second boot window,
 keeps it visible during data verification, then starts DOOM. Hold OK during
-startup to cancel automatic boot for storage service. Hold Exit for two seconds
-to request native DFU. Live preview may reduce game smoothness; turn it off for
+startup to cancel automatic boot for storage service. In v0.1.3, hold all four
+physical buttons for two seconds to request native DFU. Live preview may reduce game smoothness; turn it off for
 play. No charging/tester use is supported while this app is installed.
 
 ## 5. Return to stock: restore NOR FIRST, then the original app

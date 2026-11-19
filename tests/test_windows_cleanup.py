@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
         # Only the fixture payload hashes change. No production code is mocked;
         # the CLI executables are stubs and cannot open USB.
         for name, expected in [
-            ('apdo-doom-km003c-v0.1.2-independent.mencrypt', '666129410162fff3b1ef69888393e17edcd82ed6376b59b32b4d2d9b13f346a9'),
+            ('apdo-doom-km003c-v0.1.3-independent.mencrypt', 'cfdd4e553e3b50af9b44ed11ad0c532d4fc07019f3852945f98afda4aa387fd4'),
             ('DOOM.DAT', '6b25a4f1adb6f1f1f5f42226c272b93ccff4f356ac8d7034cf83712b2da70c08'),
         ]:
             data = ('test fixture ' + name).encode()
@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
             'verify', 'audit-image', 'verify-nor', 'check-app', 'flash', 'start',
             'restore-nor', 'loader', 'flash', 'start',
         ])
-        self.assertTrue(calls[4][2].endswith('v0.1.2-independent.mencrypt'))
+        self.assertTrue(calls[4][2].endswith('v0.1.3-independent.mencrypt'))
         self.assertTrue(calls[8][2].endswith('restore.mencrypt'))
 
     def test_bad_nor_backup_stops_before_firmware_write(self):

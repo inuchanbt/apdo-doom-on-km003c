@@ -70,8 +70,8 @@ windows stack them with ordinary vertical scrolling.
 
 ## Input and protocol
 
-PC keys combine with physical buttons. Physical Exit held for two seconds
-requests native DFU; PC fire cannot trigger that gesture. The host stops renewing
+PC keys combine with physical buttons. In v0.1.3, holding all four physical
+buttons for two seconds requests native DFU. The host stops renewing
 nonzero input after 500 ms of silent stdin. The device's 750 ms input lease also
 releases keys if the host disappears. Checks happen between rendered frames.
 

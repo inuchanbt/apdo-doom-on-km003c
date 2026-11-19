@@ -23,7 +23,8 @@ static mut LIVE: [u8; wire::PREVIEW_BYTES] = [0; wire::PREVIEW_BYTES];
 static mut FROZEN: [u8; wire::PREVIEW_BYTES] = [0; wire::PREVIEW_BYTES];
 static mut SNAPSHOT: u32 = 0;
 static mut SNAPSHOT_FRAME: u32 = 0;
-static mut EXIT_SINCE: Option<u64> = None;
+static mut LOADER_GESTURE: crate::loader_gesture::LoaderGesture =
+    crate::loader_gesture::LoaderGesture::new();
 static BOOT_SPLASH: AtomicBool = AtomicBool::new(false);
 unsafe extern "C" {
     fn km_doom_init();
@@ -236,14 +237,8 @@ fn show_splash() {
 fn check_exit() {
     let now = Instant::now().as_millis();
     unsafe {
-        if board::buttons() & 1 == 0 {
-            EXIT_SINCE = None;
-        } else {
-            match EXIT_SINCE {
-                None => EXIT_SINCE = Some(now),
-                Some(t) if now - t >= 2000 => crate::loader(0x600d1001),
-                _ => {}
-            }
+        if (*ptr::addr_of_mut!(LOADER_GESTURE)).update(board::buttons(), now) {
+            crate::loader(0x600d1001);
         }
     }
 }

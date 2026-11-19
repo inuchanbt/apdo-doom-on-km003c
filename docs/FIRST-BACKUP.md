@@ -104,8 +104,9 @@ the pack retain their original values, including the end of the final sector.
 The entire 4 MiB is read back and compared. Programming errors are not retried.
 
 DOOM auto-starts on later power cycles. Hold OK during startup to cancel automatic
-boot and retain the storage service. Holding Exit for two seconds requests native
-DFU. Normal play and screenshots never issue NOR program/erase commands.
+boot and retain the storage service. In v0.1.3, hold all four physical buttons
+for two seconds to request native DFU. Normal play and screenshots never issue
+NOR program/erase commands.
 
 ## 7. Restore original tester functionality
 

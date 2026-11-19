@@ -61,7 +61,8 @@ only the earlier WinUSB transport uses bulk terminating zero-length packets.
 A screenshot's
 snapshot ID must match for every chunk. Input expires after 750 ms at the meter;
 the host stops refreshing nonzero input after 500 ms without a fresh command.
-Physical Exit held for two seconds requests the native loader.
+In v0.1.3, holding all four physical buttons for two seconds requests the native
+loader. Exit alone can be held for sustained fire.
 
 The storage service permits game-page writes only before engine initialization,
 within the first 3 MiB, without crossing a 256-byte page. Sector erase requires

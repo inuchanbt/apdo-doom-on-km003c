@@ -30,8 +30,14 @@ __attribute__((noreturn)) void km_fail(const char *message) {
     memcpy(error,message,n);error[n]=0;longjmp(bail_out,1);
 }
 __attribute__((noreturn)) void km_exit(void) { km_fail("Game requested exit"); }
+// Host-only observer for measuring transactions below the engine's caches.
+static void (*read_observer)(uint32_t, uint32_t);
+__declspec(dllexport) void km_host_observe_reads(void (*observer)(uint32_t, uint32_t)) {
+    read_observer = observer;
+}
 void km_flash_read(uint32_t off,void *dst,uint32_t n) {
     if(off>image_size || n>image_size-off)km_fail("Host pack read out of range");
+    if (read_observer) read_observer(off, n);
     memcpy(dst,image+off,n);
 }
 void nor_read(uint32_t off,void *dst,uint32_t n);

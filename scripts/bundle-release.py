@@ -22,7 +22,7 @@ SCRIPT_NAMES = {
     'build-firmware.ps1', 'extract-splash.py', 'prepare-sources.py',
     'pc-controller.py', 'play.ps1', 'render-frame.py', 'test-engine.py',
     'test-input-cadence.py', 'test-prepare-sources.py', 'vendor-release.py',
-    'bundle-release.py', 'bundle-windows-installer.py',
+    'bundle-release.py', 'bundle-windows-installer.py', 'measure-engine-reads.py',
     'install-windows.ps1', 'Install-APDO-DOOM.cmd',
     'Remove-Leftover-DOOM-Data.cmd',
 }

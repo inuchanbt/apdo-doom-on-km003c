@@ -14,7 +14,7 @@ See [branch and tool migration](docs/BRANCHES.md) when updating an existing work
 
 ## Experimental firmware download — read the risks first
 
-[Download v0.1.2-independent — HW 2.3](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.2-independent).
+[Download v0.1.3-independent — HW 2.3](https://github.com/inuchanbt/apdo-doom-on-km003c/releases/tag/v0.1.3-independent).
 Open `START-HERE.md` in the Windows x64 ZIP. It includes the app, matching HID
 host and Freedoom E1M1 game data.
 Use the attached `-source.tar.gz` for matching project and dependency sources.
@@ -67,10 +67,15 @@ Already restored stock firmware but still have game data in NOR? The Windows
 kit includes `Remove-Leftover-DOOM-Data.cmd` (menu item 5), using your original
 verified backup. See [the cleanup guide](docs/REMOVE-DOOM-DATA.md).
 
-v0.1.2 uses a shared generic HID USB identity. **Use the matching PC helper with
+v0.1.3 uses a shared generic HID USB identity. **Use the matching PC helper with
 the new firmware.** The owner confirmed flashing and operation on 2026-11-11;
 a complete install/restore round trip has not been repeated with this transport.
 See [USB identity and migration](docs/USB-IDENTITY.md).
+
+On HW2.3, the owner verified sustained physical fire and the four-button
+two-second loader gesture on v0.1.3. Its internal-flash asset cache reduces
+external NOR reads in a host replay. On-device frame-rate gains have not been
+benchmarked. See [performance](docs/PERFORMANCE.md).
 
 ## What is independent?
 

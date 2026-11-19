@@ -65,6 +65,31 @@ volatile struct pump_stats pump_stats;
 volatile struct nor_stats nor_stats;
 FILE *stderr, *stdout;
 
+#ifdef KM_PINNED_PAGES
+#include "pinned_pages.h"
+static bool pins_ready;
+
+// Verify the entire hot set against this meter before serving any local bytes.
+static bool verify_pinned_pages(void) {
+    uint8_t block[256];
+    if (img.size != PINNED_PACK_BYTES) return false;
+    for (unsigned page = 0; page < sizeof(pinned_slot); ++page) {
+        unsigned slot = pinned_slot[page];
+        if (!slot) continue;
+        unsigned base = page * 4096u;
+        unsigned size = img.size - base;
+        if (size > 4096) size = 4096;
+        for (unsigned pos = 0; pos < size; pos += sizeof(block)) {
+            unsigned n = size - pos;
+            if (n > sizeof(block)) n = sizeof(block);
+            km_flash_read(base + pos, block, n);
+            if (memcmp(block, &pinned_data[slot - 1][pos], n)) return false;
+        }
+    }
+    return true;
+}
+#endif
+
 // Read-only game data: a small four-way cache retains short record reads
 // between frames. It never participates in service-mode NOR writes.
 #ifndef KM_CACHE_KIB
@@ -80,8 +105,7 @@ static uint8_t read_mru[READ_SETS];
 static void read_cache_reset(void) {
     memset(read_tag,0xff,sizeof(read_tag));memset(read_mru,0,sizeof(read_mru));
 }
-void nor_read(uint32_t at, void *dst, uint32_t n) {
-    if (at>0x400000u || n>0x400000u-at) km_fail("NOR read out of range");
+static void read_external(uint32_t at, void *dst, uint32_t n) {
     // Large columns/flats stream directly; do not overfetch or evict records.
     if (n > READ_LINE) { km_flash_read(at,dst,n); return; }
     uint8_t *out = dst;
@@ -106,8 +130,23 @@ void nor_read(uint32_t at, void *dst, uint32_t n) {
 }
 #else
 static void read_cache_reset(void) {}
-void nor_read(uint32_t at, void *dst, uint32_t n) { km_flash_read(at,dst,n); }
+static void read_external(uint32_t at, void *dst, uint32_t n) { km_flash_read(at,dst,n); }
 #endif
+void nor_read(uint32_t at, void *dst, uint32_t n) {
+    if (at>0x400000u || n>0x400000u-at) km_fail("NOR read out of range");
+#ifdef KM_PINNED_PAGES
+    unsigned offset = at % 4096;
+    if (pins_ready && at < PINNED_PACK_BYTES && n <= PINNED_PACK_BYTES - at &&
+        n <= 4096 - offset) {
+        unsigned slot = pinned_slot[at / 4096];
+        if (slot) {
+            memcpy(dst, &pinned_data[slot - 1][offset], n);
+            return;
+        }
+    }
+#endif
+    read_external(at, dst, n);
+}
 int nor_read_async(uint32_t at, void *dst, uint32_t n, int prio) {
     (void)prio; nor_read(at, dst, n); return 1;
 }
@@ -327,6 +366,9 @@ uint32_t plat_buttons(void) { return 0; }
 int plat_event(void) { return -1; }
 
 void km_doom_init(void) {
+#ifdef KM_PINNED_PAGES
+    pins_ready = false;
+#endif
     // The SRAMH arena is NOLOAD, separate from cortex-m-rt's ordinary BSS.
     memset(km_engine_ram,0,sizeof(km_engine_ram));
     read_cache_reset();
@@ -337,6 +379,9 @@ void km_doom_init(void) {
 #endif
     if(img_init()) km_fail("Upload matching E1M1 game data");
     km_validate_reads(img.size);
+#ifdef KM_PINNED_PAGES
+    pins_ready = verify_pinned_pages();
+#endif
     read_cache_reset();
     rc_place(km_engine_ram+16000);flat_place(NULL);flat_set_slots(0);
     dmc_set.always_run=1;

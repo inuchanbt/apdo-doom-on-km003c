@@ -10,11 +10,11 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-FIRMWARE = 'apdo-doom-km003c-v0.1.2-independent.mencrypt'
-NOTICES = 'apdo-doom-v0.1.2-independent-notices.zip'
+FIRMWARE = 'apdo-doom-km003c-v0.1.3-independent.mencrypt'
+NOTICES = 'apdo-doom-v0.1.3-independent-notices.zip'
 PAYLOAD_HASHES = {
     NOTICES: '59ba198c9405aa64b90021a9be9f4410f682dcf2c423475e8d784e9bd9afed20',
-    FIRMWARE: '666129410162fff3b1ef69888393e17edcd82ed6376b59b32b4d2d9b13f346a9',
+    FIRMWARE: 'cfdd4e553e3b50af9b44ed11ad0c532d4fc07019f3852945f98afda4aa387fd4',
     'DOOM.DAT': '6b25a4f1adb6f1f1f5f42226c272b93ccff4f356ac8d7034cf83712b2da70c08',
 }
 

@@ -14,7 +14,11 @@
   "game_data": {
     "name": "Freedoom 0.13.0, converted E1M1 pack",
     "bytes": 2802000,
-    "sha256": "6b25a4f1adb6f1f1f5f42226c272b93ccff4f356ac8d7034cf83712b2da70c08"
+    "sha256": "6b25a4f1adb6f1f1f5f42226c272b93ccff4f356ac8d7034cf83712b2da70c08",
+    "internal_flash_pages_4k": [
+      8, 10, 11, 15, 16, 17, 18, 135, 230, 275, 276, 301, 302, 318, 319, 326,
+      420, 510, 511, 514, 543, 655, 657, 658, 659, 660, 663, 664, 674, 676, 677, 683
+    ]
   },
   "hc32-mit-subset": {
     "url": "https://github.com/okhsunrog/hc32f460-embassy-rs",

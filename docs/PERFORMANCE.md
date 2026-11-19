@@ -25,6 +25,44 @@ alongside its profiling tools and `performance-v8.json`. They explain the earlie
 optimization decisions but are **not measurements of the independent board
 implementation**. No new independent-firmware throughput benchmark is claimed.
 
+## HW2.3 internal flash optimization (2.0.7-apdo5)
+
+The follow-up `2.0.7-apdo5` retains these optimizations and changes
+the in-game loader gesture to holding all four physical buttons for two seconds.
+Exit remains available for sustained fire. The manual recovery gesture remains
+holding Exit while connecting the HID cable. The owner confirmed sustained
+fire and the four-button loader gesture on one HW2.3 unit.
+
+The game reads 32 frequently used 4 KiB E1M1 pages from MCU application flash.
+The build extracts them from the SHA-256-pinned pack using the page list in
+`SOURCE_LOCK.json`. At game initialization the engine compares every valid byte
+of these pages with the installed NOR. Any mismatch disables the whole local
+copy. Cross-page reads and reads of other pages use the existing NOR path.
+The extra 128 KiB occupies application flash. The 240×240 display, RGB565
+output, HUD, 35 Hz simulation and pacing options use the existing code.
+
+In a host replay of 140 frames (stationary, forward, turn, fire, stationary),
+the observer counted reads beneath the engine caches after initialization:
+
+| External NOR work | Previous path | With pinned pages |
+| --- | ---: | ---: |
+| Read transactions | 146,128 | 30,525 |
+| Payload bytes | 6,287,977 | 1,327,668 |
+
+All 140 RGB565 frame hashes matched. Page selection used this same replay,
+ranking pages by requested bytes plus four command/address bytes per request
+fragment. Results in other areas can differ. MCU frame time and on-device
+gameplay still need a physical comparison. For that comparison, use the same
+scene with **Uncapped** pacing and **Live preview** off on both builds.
+
+```powershell
+python scripts/build-engine.py --host-test --square --no-pinned-pages
+python scripts/measure-engine-reads.py artifacts/before.json
+python scripts/build-engine.py --host-test --square
+python scripts/measure-engine-reads.py artifacts/after.json --reference artifacts/before.json
+python scripts/measure-engine-reads.py --check-fallback
+```
+
 Run [the engine and input tests](BUILD.md#checks) for projection, caching, HUD
 and command-cadence regression checks. See [VALIDATION.md](VALIDATION.md) for the
 actual hardware scope and [PC-CONTROLS.md](PC-CONTROLS.md) for the controls.
